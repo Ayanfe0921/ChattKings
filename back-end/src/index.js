@@ -11,8 +11,8 @@ import job from "./lib/cron.js";
 import clerk from "./webhooks/clerk.js";
 import authRoutes from "./routs/auth.routes.js";
 import messageRoutes from "./routs/message.routes.js";
+import { app, server } from "./lib/socket.js";
 
-const app = express();
 const PORT = process.env.PORT || 3001;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,7 +45,7 @@ app.get("/{*any}", (req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   connectDB();
   console.log("server is running on PORT:", PORT);
 
