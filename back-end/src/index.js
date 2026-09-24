@@ -1,38 +1,36 @@
-// const express = require("express");
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
 
-import fs from "fs";
-import path from "path";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { clerkMiddleware } from "@clerk/express";
-
-import User from "./models/user.model.js";
 import { connectDB } from "./lib/db.js";
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-const PORT = process.env.PORT;
-const FRONTEND_URL = process.env.FRONTEND_URL;
-
-const publicDir = path.join(process.cwd(), "public");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendDir = path.resolve(__dirname, "../../front-end/dist");
 
 app.use(express.json());
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(clerkMiddleware());
 
 app.get("/health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-if (fs.existsSync(publicDir)) {
-  app.use(express.static(publicDir));
+// Serve the built frontend
+app.use(express.static(frontendDir));
 
-  app.get("/{*any}", (req, res, next) => {
-    res.sendFile(path.join(publicDir, "index.html"), (err) => next(err));
+app.get("/{*any}", (req, res, next) => {
+  res.sendFile(path.join(frontendDir, "index.html"), (error) => {
+    if (error) next(error);
   });
-}
+});
 
 app.listen(PORT, () => {
   connectDB();
