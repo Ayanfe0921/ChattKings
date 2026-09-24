@@ -8,8 +8,8 @@ import path from "path";
 
 import { clerkMiddleware } from "@clerk/express";
 
-import User from "./src/models/user.model.js";
-import { connectDB } from "./src/lib/db.js";
+import User from "./models/user.model.js";
+import { connectDB } from "./lib/db.js";
 
 const app = express();
 
