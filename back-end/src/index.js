@@ -10,6 +10,7 @@ import { connectDB } from "./lib/db.js";
 import job from "./lib/cron.js";
 import clerk from "./webhooks/clerk.js";
 import authRoutes from "./routs/auth.routes.js";
+import messageRoutes from "./routs/message.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,6 +34,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/messages", messageRoutes);
 
 // Serve the built frontend
 app.use(express.static(frontendDir));
