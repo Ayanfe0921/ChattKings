@@ -1,6 +1,6 @@
 import Imagekit, { toFile } from "@imagekit/nodejs";
 
-const imagekit = new Imagekit({ privatekey: Process.env.IMAGEKIT_PRIVATE_KEY });
+const imagekit = new Imagekit({ privateKey: process.env.IMAGEKIT_PRIVATE_KEY });
 
 function hasImageKitConfig() {
   return Boolean(process.env.IMAGEKIT_PRIVATE_KEY);
