@@ -1,6 +1,8 @@
 FROM node:22-bookworm-slim AS frontend-build
 
 WORKDIR /app/front-end
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
 COPY front-end/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY front-end/ ./

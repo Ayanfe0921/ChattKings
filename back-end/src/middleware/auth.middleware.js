@@ -1,4 +1,4 @@
-import { getAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 import User from "../models/user.model.js";
 
 export async function protectRoute(req, res, next) {
@@ -10,11 +10,35 @@ export async function protectRoute(req, res, next) {
       return;
     }
 
-    const user = await User.findOne({ clerkId: userId });
+    let user = await User.findOne({ clerkId: userId });
 
     if (!user) {
-      res.status(404).json({ message: "User profile is not synced yet" });
-      return;
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const email =
+        clerkUser.emailAddresses.find(
+          (address) => address.id === clerkUser.primaryEmailAddressId,
+        )?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
+
+      if (!email) {
+        res.status(422).json({ message: "A Clerk account email is required" });
+        return;
+      }
+
+      const fullName =
+        [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+        clerkUser.username ||
+        email.split("@")[0];
+
+      user = await User.findOneAndUpdate(
+        { clerkId: userId },
+        {
+          clerkId: userId,
+          email,
+          fullName,
+          profilePic: clerkUser.imageUrl || "",
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      );
     }
 
     req.user = user;

@@ -6,12 +6,13 @@ import AuthPage from "./pages/AuthPage";
 import { useAuth } from "@clerk/react";
 import PageLoader from "./components/PageLoader";
 import { useAuthStore } from "./store/useAuthStore";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Toaster } from "react-hot-toast";
 
 function App() {
   const { isSignedIn, isLoaded } = useAuth();
+  const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
 
   // option 1
   // const { checkAuth, isCheckingAuth, clearAuth } = useAuthStore();
@@ -20,6 +21,7 @@ function App() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth);
+  const authError = useAuthStore((state) => state.authError);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -28,7 +30,57 @@ function App() {
     else clearAuth();
   }, [checkAuth, clearAuth, isLoaded, isSignedIn]);
 
-  if (!isLoaded || (isSignedIn && isCheckingAuth)) return <PageLoader />;
+  useEffect(() => {
+    if (isLoaded) {
+      setClerkLoadTimedOut(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setClerkLoadTimedOut(true), 15000);
+    return () => window.clearTimeout(timeoutId);
+  }, [isLoaded]);
+
+  if (!isLoaded) {
+    if (clerkLoadTimedOut) {
+      return (
+        <main className="flex min-h-dvh items-center justify-center bg-background px-6 text-foreground">
+          <section className="max-w-lg text-center">
+            <h1 className="text-xl font-semibold">Sign-in is taking too long</h1>
+            <p className="mt-3 text-sm text-muted">
+              Check that the deployment uses the correct Clerk publishable key and allows this
+              domain, then reload the page.
+            </p>
+            <button
+              className="mt-5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </button>
+          </section>
+        </main>
+      );
+    }
+
+    return <PageLoader />;
+  }
+
+  if (isSignedIn && isCheckingAuth) return <PageLoader />;
+  if (isSignedIn && authError) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-background px-6 text-foreground">
+        <section className="max-w-lg text-center">
+          <h1 className="text-xl font-semibold">Could not connect to chat</h1>
+          <p className="mt-3 text-sm text-muted">{authError}</p>
+          <button
+            className="mt-5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+            onClick={checkAuth}
+          >
+            Try again
+          </button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <ThemeProvider>
