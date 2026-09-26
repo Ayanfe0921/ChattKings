@@ -26,6 +26,10 @@ const messageSchema = new mongoose.Schema(
       enum: ["message", "streak-notice"],
       default: "message",
     },
+    readAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

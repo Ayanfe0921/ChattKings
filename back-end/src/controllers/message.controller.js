@@ -87,7 +87,7 @@ async function recordImageStreak(senderId, receiverId) {
   let noticeText = null;
   if (qualifiedStreak) {
     if (qualifiedStreak.currentCount === 1) {
-      noticeText = "You started a photo streak with each other! 🔥";
+      noticeText = "You started a media streak with each other! 🔥";
     } else if (
       STREAK_MILESTONES.includes(qualifiedStreak.currentCount) &&
       !qualifiedStreak.reachedMilestones.includes(qualifiedStreak.currentCount)
@@ -96,8 +96,8 @@ async function recordImageStreak(senderId, receiverId) {
       await Streak.updateOne({ _id: qualifiedStreak._id }, { $addToSet: { reachedMilestones: milestone } });
       noticeText =
         milestone === 5000
-          ? "You reached the 5 decade photo streak milestone! 🎉"
-          : `You reached the ${milestone}-day photo streak milestone! 🎉`;
+          ? "You reached the 5 decade media streak milestone! 🎉"
+          : `You reached the ${milestone}-day media streak milestone! 🎉`;
     }
   }
 
@@ -147,7 +147,9 @@ export async function getConversationsForSidebar(req, res) {
           $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }],
         },
       },
-      // 2. Collapse them into one row per chat partner, noting our latest message time.
+      // Sort newest first so the grouped preview fields describe the latest message.
+      { $sort: { createdAt: -1 } },
+      // Collapse messages into one row per partner and count unread incoming messages.
       {
         $group: {
           // The partner is the other person on the message (not me).
@@ -158,7 +160,30 @@ export async function getConversationsForSidebar(req, res) {
               "$senderId",
             ],
           },
-          lastMessageAt: { $max: "$createdAt" },
+          lastMessageAt: { $first: "$createdAt" },
+          lastMessageText: {
+            $first: {
+              $ifNull: [
+                "$text",
+                { $cond: [{ $ne: ["$image", null] }, "Photo", { $cond: [{ $ne: ["$video", null] }, "Video", "Message"] }] },
+              ],
+            },
+          },
+          lastMessageSenderId: { $first: "$senderId" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$receiverId", loggedInUserId] },
+                    { $eq: [{ $ifNull: ["$readAt", null] }, null] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
         },
       },
       // 3. Put the most recent conversation at the top.
@@ -174,6 +199,14 @@ export async function getConversationsForSidebar(req, res) {
       },
       // 5. Pull that profile out of the array and make it the document.
       { $unwind: "$user" },
+      {
+        $addFields: {
+          "user.lastMessageText": "$lastMessageText",
+          "user.lastMessageSenderId": "$lastMessageSenderId",
+          "user.unreadCount": "$unreadCount",
+          "user.lastMessageAt": "$lastMessageAt",
+        },
+      },
       { $replaceRoot: { newRoot: "$user" } },
       // 6. Hide the private clerkId field from the result.
       { $project: { clerkId: 0 } },
@@ -202,6 +235,22 @@ export async function getMessages(req, res) {
   } catch (error) {
     console.error("Error in getMessages:", error.message);
     res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function markMessagesRead(req, res) {
+  try {
+    const { id: senderId } = req.params;
+    const receiverId = req.user._id;
+    await Message.updateMany(
+      { senderId, receiverId, readAt: null },
+      { $set: { readAt: new Date() } },
+    );
+    io.to(`user:${receiverId}`).emit("messagesRead", { peerId: String(senderId) });
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error("Error in markMessagesRead:", error);
+    res.status(500).json({ message: "Could not mark messages as read" });
   }
 }
 
@@ -260,7 +309,7 @@ export async function sendMessage(req, res) {
 
     await newMessage.save();
 
-    if (imageUrl) await recordImageStreak(senderId, receiverId);
+    if (imageUrl || videoUrl) await recordImageStreak(senderId, receiverId);
 
     // The user room delivers to every active tab/device for this recipient.
     io.to(`user:${receiverId}`).emit("newMessage", newMessage);

@@ -11,7 +11,7 @@ import { ConversationRow } from "./ConversationRow";
 import { CountdownPanel } from "./CountdownPanel";
 import toast from "react-hot-toast";
 
-function mapUserForList(user, onlineUsers, streak) {
+function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) {
   return {
     conversationId: user._id,
     id: user._id,
@@ -20,6 +20,10 @@ function mapUserForList(user, onlineUsers, streak) {
     initials: getInitials(user.fullName),
     isOnline: onlineUsers.includes(user._id),
     streak,
+    lastMessageText: conversation?.lastMessageText || "",
+    lastMessageIsOwn:
+      String(conversation?.lastMessageSenderId) === String(currentUserId),
+    unreadCount: conversation?.unreadCount || 0,
     peer: {
       name: user.fullName,
       avatarUrl: user.profilePic,
@@ -44,6 +48,7 @@ function ChatSidebar() {
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
 
   const onlineUsers = useAuthStore((state) => state.onlineUsers);
+  const authUser = useAuthStore((state) => state.authUser);
   const socket = useAuthStore((state) => state.socket);
 
   const { activeConversationId, isLargeScreen } = useSelectedConversation();
@@ -57,11 +62,26 @@ function ChatSidebar() {
     return () => socket.off("countdownReminder", handleCountdownReminder);
   }, [socket]);
 
+  const conversationsByUser = new Map(
+    conversations.map((conversation) => [String(conversation._id), conversation]),
+  );
   const conversationUsers = conversations.map((user) =>
-    mapUserForList(user, onlineUsers, streaks[String(user._id)]),
+    mapUserForList(
+      user,
+      onlineUsers,
+      streaks[String(user._id)],
+      user,
+      authUser?._id,
+    ),
   );
   const allUsers = users.map((user) =>
-    mapUserForList(user, onlineUsers, streaks[String(user._id)]),
+    mapUserForList(
+      user,
+      onlineUsers,
+      streaks[String(user._id)],
+      conversationsByUser.get(String(user._id)),
+      authUser?._id,
+    ),
   );
 
   const filteredConversations = normalizedSearchQuery

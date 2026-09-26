@@ -62,8 +62,8 @@ export function StreakIndicator({ streak, compact = false }) {
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 text-accent ${compact ? "text-[10px]" : "text-xs"}`}
-      title={`${days}-day photo streak`}
-      aria-label={`${days}-day photo streak`}
+      title={`${days}-day media streak`}
+      aria-label={`${days}-day media streak`}
     >
       {icon}
       <span className="font-semibold tabular-nums">{days}</span>

@@ -15,6 +15,7 @@ function ChatPage() {
   const subscribeToStreakUpdates = useChatStore((state) => state.subscribeToStreakUpdates);
   const unsubscribeFromStreakUpdates = useChatStore((state) => state.unsubscribeFromStreakUpdates);
   const getMessages = useChatStore((state) => state.getMessages);
+  const markMessagesRead = useChatStore((state) => state.markMessagesRead);
   const getUsers = useChatStore((state) => state.getUsers);
   const subscribeToMessages = useChatStore((state) => state.subscribeToMessages);
   const unsubscribeFromMessages = useChatStore((state) => state.unsubscribeFromMessages);
@@ -33,14 +34,16 @@ function ChatPage() {
   }, [subscribeToStreakUpdates, unsubscribeFromStreakUpdates]);
 
   useEffect(() => {
+    subscribeToMessages();
+    return () => unsubscribeFromMessages();
+  }, [subscribeToMessages, unsubscribeFromMessages]);
+
+  useEffect(() => {
     if (!activeConversationId) return;
 
     getMessages(activeConversationId);
-    subscribeToMessages(activeConversationId);
-
-    // cleanup
-    return () => unsubscribeFromMessages();
-  }, [getMessages, activeConversationId, subscribeToMessages, unsubscribeFromMessages]);
+    markMessagesRead(activeConversationId);
+  }, [getMessages, markMessagesRead, activeConversationId]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden p-2 sm:p-3 md:p-8" style={frameStyle}>

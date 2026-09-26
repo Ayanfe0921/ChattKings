@@ -67,6 +67,23 @@ export const useChatStore = create(
         }
       },
 
+      markMessagesRead: async (peerId) => {
+        if (!peerId) return;
+        set((state) => ({
+          conversations: state.conversations.map((conversation) =>
+            String(conversation._id) === String(peerId)
+              ? { ...conversation, unreadCount: 0 }
+              : conversation,
+          ),
+        }));
+        try {
+          await axiosInstance.patch(`/messages/read/${peerId}`);
+          await get().getConversations();
+        } catch (error) {
+          console.log("Error marking messages as read", error.message);
+        }
+      },
+
       subscribeToStreakUpdates: () => {
         const socket = useAuthStore.getState().socket;
         if (!socket) return;
@@ -137,35 +154,64 @@ export const useChatStore = create(
         }
       },
 
-      subscribeToMessages: (userId) => {
-        if (!userId) return;
-
+      subscribeToMessages: () => {
         const socket = useAuthStore.getState().socket;
         if (!socket) return;
 
         socket.off("newMessage");
-        socket.on("newMessage", (newMessage) => {
-          // if im not the receiver don't do anything just return
-          if (String(newMessage.senderId) !== String(userId)) return;
+        socket.on("newMessage", async (newMessage) => {
+          const authUser = useAuthStore.getState().authUser;
+          if (String(newMessage.receiverId) !== String(authUser?._id)) return;
 
+          const peerId = String(newMessage.senderId);
+          const isOpen = String(get().activeConversationId) === peerId;
           set((state) => ({
-            messages: state.messages.some(
-              (message) => String(message._id) === String(newMessage._id),
-            )
-              ? state.messages
-              : [...state.messages, newMessage].sort(
-                  (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
-                ),
+            messages:
+              isOpen &&
+              !state.messages.some(
+                (message) => String(message._id) === String(newMessage._id),
+              )
+                ? [...state.messages, newMessage].sort(
+                    (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+                  )
+                : state.messages,
+            conversations: state.conversations.map((conversation) =>
+              String(conversation._id) === peerId
+                ? {
+                    ...conversation,
+                    lastMessageText:
+                      newMessage.text || (newMessage.image ? "Photo" : "Video"),
+                    lastMessageSenderId: newMessage.senderId,
+                    lastMessageAt: newMessage.createdAt,
+                    unreadCount: isOpen
+                      ? 0
+                      : (conversation.unreadCount || 0) + 1,
+                  }
+                : conversation,
+            ),
           }));
 
-          get().getConversations();
+          if (isOpen) await get().markMessagesRead(peerId);
+          else get().getConversations();
+        });
+
+        socket.off("messagesRead");
+        socket.on("messagesRead", ({ peerId }) => {
+          set((state) => ({
+            conversations: state.conversations.map((conversation) =>
+              String(conversation._id) === String(peerId)
+                ? { ...conversation, unreadCount: 0 }
+                : conversation,
+            ),
+          }));
         });
 
         socket.off("streakNotice");
         socket.on("streakNotice", (notice) => {
+          const activeConversationId = get().activeConversationId;
           const isInConversation =
-            String(notice.senderId) === String(userId) ||
-            String(notice.receiverId) === String(userId);
+            String(notice.senderId) === String(activeConversationId) ||
+            String(notice.receiverId) === String(activeConversationId);
           if (!isInConversation) return;
           set((state) => ({
             messages: state.messages.some(
@@ -180,6 +226,7 @@ export const useChatStore = create(
       unsubscribeFromMessages: () => {
         const socket = useAuthStore.getState().socket;
         socket?.off("newMessage");
+        socket?.off("messagesRead");
         socket?.off("streakNotice");
       },
 
