@@ -40,63 +40,49 @@ async function recordImageStreak(senderId, receiverId) {
     if (error.code !== 11000) throw error;
   }
 
-  // Add each sender atomically so simultaneous uploads cannot overwrite one another.
-  await Streak.findOneAndUpdate(
-    { userA, userB },
-    [
-      {
-        $set: {
-          activeDaySenders: {
-            $cond: [
-              { $eq: ["$activeDayKey", today] },
-              {
-                $setUnion: [
-                  { $ifNull: ["$activeDaySenders", []] },
-                  [senderId],
-                ],
-              },
-              [senderId],
-            ],
-          },
-          activeDayKey: today,
-        },
-      },
-    ],
-    { new: true },
+  // Reset the sender list once per day, then add atomically. These operator
+  // updates work on older MongoDB versions that don't support update pipelines.
+  await Streak.updateOne(
+    { userA, userB, activeDayKey: { $ne: today } },
+    { $set: { activeDayKey: today, activeDaySenders: [senderId] } },
+  );
+  await Streak.updateOne(
+    { userA, userB, activeDayKey: today },
+    { $addToSet: { activeDaySenders: senderId } },
   );
 
   // Only one request can qualify a given day and create its milestone notice.
-  const qualifiedStreak = await Streak.findOneAndUpdate(
+  let qualifiedStreak = await Streak.findOneAndUpdate(
     {
       userA,
       userB,
       activeDayKey: today,
       activeDaySenders: { $all: [userA, userB] },
-      lastQualifiedDayKey: { $ne: today },
+      lastQualifiedDayKey: yesterday,
     },
-    [
+    { $inc: { currentCount: 1 }, $set: { lastQualifiedDayKey: today } },
+    { new: true },
+  );
+
+  if (!qualifiedStreak) {
+    qualifiedStreak = await Streak.findOneAndUpdate(
+      {
+        userA,
+        userB,
+        activeDayKey: today,
+        activeDaySenders: { $all: [userA, userB] },
+        lastQualifiedDayKey: { $nin: [today, yesterday] },
+      },
       {
         $set: {
-          currentCount: {
-            $cond: [
-              { $eq: ["$lastQualifiedDayKey", yesterday] },
-              { $add: [{ $ifNull: ["$currentCount", 0] }, 1] },
-              1,
-            ],
-          },
-          startedAt: {
-            $cond: [
-              { $eq: ["$lastQualifiedDayKey", yesterday] },
-              "$startedAt",
-              new Date(),
-            ],
-          },
+          currentCount: 1,
+          startedAt: new Date(),
           lastQualifiedDayKey: today,
         },
       },
-    ],
-    { new: true },
-  );
+      { new: true },
+    );
+  }
 
   let noticeText = null;
   if (qualifiedStreak) {
@@ -187,14 +173,15 @@ export async function getConversationsForSidebar(req, res) {
         },
       },
       // 5. Pull that profile out of the array and make it the document.
-      { $replaceRoot: { newRoot: { $first: "$user" } } },
+      { $unwind: "$user" },
+      { $replaceRoot: { newRoot: "$user" } },
       // 6. Hide the private clerkId field from the result.
       { $project: { clerkId: 0 } },
     ]);
 
     res.status(200).json(conversations);
   } catch (error) {
-    console.error("Error in getConversationsForSidebar:", error.message);
+    console.error("Error in getConversationsForSidebar:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -250,7 +237,15 @@ export async function sendMessage(req, res) {
           .json({ message: "Media upload is not configured" });
       }
 
-      const url = await uploadChatMedia(req.file);
+      let url;
+      try {
+        url = await uploadChatMedia(req.file);
+      } catch (error) {
+        console.error("Error uploading chat media to ImageKit:", error);
+        return res.status(502).json({
+          message: "ImageKit could not store this file. Check its credentials and upload limits.",
+        });
+      }
       if (req.file.mimetype.startsWith("video/")) videoUrl = url;
       else imageUrl = url;
     }
@@ -272,7 +267,7 @@ export async function sendMessage(req, res) {
 
     res.status(201).json(newMessage);
   } catch (error) {
-    console.error("Error in sendMessage:", error.message);
+    console.error("Error in sendMessage:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }

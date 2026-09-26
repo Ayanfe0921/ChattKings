@@ -11,6 +11,8 @@ import job from "./lib/cron.js";
 import clerk from "./webhooks/clerk.js";
 import authRoutes from "./routs/auth.routes.js";
 import messageRoutes from "./routs/message.routes.js";
+import countdownRoutes from "./routs/countdown.routes.js";
+import countdownReminderJob from "./lib/countdownReminders.js";
 import { app, server } from "./lib/socket.js";
 
 const PORT = process.env.PORT || 3001;
@@ -35,6 +37,7 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/countdowns", countdownRoutes);
 
 // Serve the built frontend
 app.use(express.static(frontendDir));
@@ -46,7 +49,9 @@ app.get("/{*any}", (req, res, next) => {
 });
 
 server.listen(PORT, () => {
-  connectDB();
+  connectDB()
+    .then(() => countdownReminderJob.start())
+    .catch((error) => console.error("Countdown reminders could not start:", error));
   console.log("server is running on PORT:", PORT);
 
   if (process.env.NODE_ENV === "production") job.start();
