@@ -9,7 +9,6 @@ export function QuotesPanel() {
   const getConversations = useChatStore((state) => state.getConversations);
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
   const setWorkspaceSection = useChatStore((state) => state.setWorkspaceSection);
-  const getConversations = useChatStore((state) => state.getConversations);
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
