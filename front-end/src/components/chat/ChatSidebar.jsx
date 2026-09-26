@@ -9,6 +9,8 @@ import { SearchField, Tabs } from "@heroui/react";
 import { MessageSquareIcon, UsersIcon } from "lucide-react";
 import { ConversationRow } from "./ConversationRow";
 import toast from "react-hot-toast";
+import { axiosInstance } from "../../lib/axios";
+import { useState } from "react";
 
 function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) {
   return {
@@ -17,7 +19,7 @@ function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) 
     name: user.fullName,
     avatarUrl: user.profilePic,
     initials: getInitials(user.fullName),
-    isOnline: onlineUsers.includes(user._id),
+    isOnline: user.showOnlineStatus !== false && onlineUsers.includes(user._id),
     streak,
     lastMessageText: conversation?.lastMessageText || "",
     lastMessageIsOwn:
@@ -27,7 +29,8 @@ function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) 
       name: user.fullName,
       avatarUrl: user.profilePic,
       initials: getInitials(user.fullName),
-      isOnline: onlineUsers.includes(user._id),
+      isOnline: user.showOnlineStatus !== false && onlineUsers.includes(user._id),
+      tag: user.contactTag || "",
     },
   };
 }
@@ -49,6 +52,8 @@ function ChatSidebar() {
   const onlineUsers = useAuthStore((state) => state.onlineUsers);
   const authUser = useAuthStore((state) => state.authUser);
   const socket = useAuthStore((state) => state.socket);
+  const setAuthUser = useAuthStore.setState;
+  const [savingPresence, setSavingPresence] = useState(false);
 
   const { activeConversationId, isLargeScreen } = useSelectedConversation();
 
@@ -85,7 +90,7 @@ function ChatSidebar() {
 
   const filteredConversations = normalizedSearchQuery
     ? conversationUsers.filter((conversation) =>
-        conversation.peer.name.toLowerCase().includes(normalizedSearchQuery),
+        conversation.peer.name.toLowerCase().includes(normalizedSearchQuery) || conversation.peer.tag.toLowerCase().includes(normalizedSearchQuery),
       )
     : conversationUsers;
 
@@ -112,6 +117,7 @@ function ChatSidebar() {
               },
             }}
           />
+          <button type="button" disabled={savingPresence} aria-pressed={authUser?.showOnlineStatus !== false} title={authUser?.showOnlineStatus === false ? "Turn online visibility on" : "Turn online visibility off"} onClick={async () => { const enabled = authUser?.showOnlineStatus === false; setSavingPresence(true); try { const res = await axiosInstance.patch("/messages/settings/online-status", { enabled }); setAuthUser((state) => ({ authUser: { ...state.authUser, ...res.data } })); } catch (error) { toast.error(error.response?.data?.message || "Could not update online visibility"); } finally { setSavingPresence(false); } }} className={`grid size-8 shrink-0 place-items-center rounded-full border text-[10px] font-semibold ${authUser?.showOnlineStatus === false ? "border-border text-muted" : "border-success bg-success/10 text-success"}`} aria-label="Toggle online visibility">{authUser?.showOnlineStatus === false ? "OFF" : "ON"}</button>
         </div>
       </div>
 

@@ -20,6 +20,8 @@ const userSchema = new mongoose.Schema(
         type: String,
         default: "",
     },
+    contactTags: { type: Map, of: String, default: {} },
+    showOnlineStatus: { type: Boolean, default: true },
 }, 
   {timestamps: true} //createdAt or updatedAt
 );

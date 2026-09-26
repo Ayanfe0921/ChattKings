@@ -59,7 +59,7 @@ export function CodexChatPanel() {
 
   return (
     <section className="mx-auto flex h-full w-full max-w-4xl flex-col border-x border-border bg-background" aria-label="Codex AI chat">
-      <header className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-4 sm:px-6">
+      <header className="flex h-15 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-6">
         <span className="grid size-9 place-items-center rounded-xl bg-accent/10 text-accent"><BotIcon className="size-5" /></span>
         <div className="min-w-0 flex-1"><h1 className="truncate text-sm font-semibold">Codex AI</h1><p className="text-xs text-muted">OpenAI Codex · messages are saved to your account</p></div>
         <button type="button" onClick={clear} disabled={!messages.length} aria-label="Clear Codex chat" title="Clear chat" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface hover:text-foreground disabled:opacity-40"><Trash2Icon className="size-4" /></button>
@@ -68,7 +68,7 @@ export function CodexChatPanel() {
         {loading ? <p className="py-8 text-center text-sm text-muted">Loading your chat…</p> : null}
         {!loading && !messages.length ? <div className="grid h-full min-h-48 place-items-center text-center"><div><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent"><BotIcon className="size-7" /></span><h2 className="mt-4 font-semibold">Chat with Codex</h2><p className="mt-1 text-sm text-muted">Ask a question or get help with an idea.</p></div></div> : null}
         {(Array.isArray(messages) ? messages : []).map((message, index) => <div key={`${message.createdAt || "new"}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-          <div className={`max-w-[88%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm ${message.role === "user" ? "rounded-br-md bg-accent text-accent-foreground" : "rounded-bl-md bg-surface"}`}>{message.content}</div>
+          <div className={`max-w-[88%] whitespace-pre-wrap wrap-break-words rounded-2xl px-4 py-3 text-sm ${message.role === "user" ? "rounded-br-md bg-accent text-accent-foreground" : "rounded-bl-md bg-surface"}`}>{message.content}</div>
         </div>)}
         {sending ? <div className="flex"><div className="rounded-2xl rounded-bl-md bg-surface px-4 py-3"><LoaderIcon className="size-4 animate-spin text-accent" /></div></div> : null}
         <div ref={bottomRef} />

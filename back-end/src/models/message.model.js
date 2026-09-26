@@ -22,17 +22,23 @@ const messageSchema = new mongoose.Schema(
     video: {
       type: String,
     },
+    audio: { type: String },
+    deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     sticker: { type: String, maxlength: 20 },
     replyTo: {
       messageId: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },
       senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       senderName: { type: String, maxlength: 120 },
       text: { type: String, maxlength: 500 },
-      mediaType: { type: String, enum: ["image", "video", "sticker", "text"] },
+      mediaType: { type: String, enum: ["image", "video", "audio", "sticker", "text"] },
     },
     reactions: [{
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       emoji: { type: String, required: true, maxlength: 16 },
+    }],
+    pinnedBy: [{
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      pinnedAt: { type: Date, default: Date.now },
     }],
     kind: {
       type: String,

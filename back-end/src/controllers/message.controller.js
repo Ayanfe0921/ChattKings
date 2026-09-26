@@ -125,9 +125,11 @@ export async function getUsersForSidebar(req, res) {
   try {
     const loggedInUserId = req.user._id;
 
-    const filteredUsers = await User.find({
+    const [filteredUsers, me] = await Promise.all([User.find({
       _id: { $ne: loggedInUserId },
-    }).select("-clerkId");
+    }).select("-clerkId").lean(), User.findById(loggedInUserId).select("contactTags").lean()]);
+    const tags = me?.contactTags || {};
+    filteredUsers.forEach((user) => { user.contactTag = tags[String(user._id)] || ""; });
 
     res.status(200).json(filteredUsers);
   } catch (error) {
@@ -140,7 +142,7 @@ export async function getConversationsForSidebar(req, res) {
   try {
     const loggedInUserId = req.user._id;
 
-    const conversations = await Message.aggregate([
+    const [conversations, me] = await Promise.all([Message.aggregate([
       // 1. Keep only the messages I sent or received.
       {
         $match: {
@@ -166,7 +168,7 @@ export async function getConversationsForSidebar(req, res) {
             $first: {
               $ifNull: [
                 "$text",
-                { $cond: [{ $ne: ["$image", null] }, "Photo", { $cond: [{ $ne: ["$video", null] }, "Video", { $cond: [{ $ne: ["$sticker", null] }, "Sticker", "Message"] }] }] },
+                { $cond: [{ $ne: ["$image", null] }, "Photo", { $cond: [{ $ne: ["$video", null] }, "Video", { $cond: [{ $ne: ["$audio", null] }, "Voice note", { $cond: [{ $ne: ["$sticker", null] }, "Sticker", "Message"] }] }] }] },
               ],
             },
           },
@@ -211,7 +213,9 @@ export async function getConversationsForSidebar(req, res) {
       { $replaceRoot: { newRoot: "$user" } },
       // 6. Hide the private clerkId field from the result.
       { $project: { clerkId: 0 } },
-    ]);
+    ]), User.findById(loggedInUserId).select("contactTags").lean()]);
+    const tags = me?.contactTags || {};
+    conversations.forEach((user) => { user.contactTag = tags[String(user._id)] || ""; });
 
     res.status(200).json(conversations);
   } catch (error) {
@@ -230,6 +234,7 @@ export async function getMessages(req, res) {
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
+      deletedFor: { $ne: myId },
     }).sort({ createdAt: 1 });
 
     res.status(200).json(messages);
@@ -280,6 +285,7 @@ export async function sendMessage(req, res) {
 
     let imageUrl;
     let videoUrl;
+    let audioUrl;
 
     if (req.file) {
       if (!hasImageKitConfig()) {
@@ -297,7 +303,8 @@ export async function sendMessage(req, res) {
           message: "ImageKit could not store this file. Check its credentials and upload limits.",
         });
       }
-      if (req.file.mimetype.startsWith("video/")) videoUrl = url;
+      if (req.file.mimetype.startsWith("audio/")) audioUrl = url;
+      else if (req.file.mimetype.startsWith("video/")) videoUrl = url;
       else imageUrl = url;
     }
 
@@ -320,7 +327,7 @@ export async function sendMessage(req, res) {
         mediaType: repliedMessage.image ? "image" : repliedMessage.video ? "video" : repliedMessage.sticker ? "sticker" : "text",
       };
     }
-    if (!text?.trim() && !imageUrl && !videoUrl && !sticker) {
+    if (!text?.trim() && !imageUrl && !videoUrl && !audioUrl && !sticker) {
       return res.status(400).json({ message: "Write a message or choose a sticker" });
     }
 
@@ -330,6 +337,7 @@ export async function sendMessage(req, res) {
       text: text?.trim(),
       image: imageUrl,
       video: videoUrl,
+      audio: audioUrl,
       sticker,
       replyTo,
     });
@@ -389,4 +397,72 @@ export async function toggleMessageReaction(req, res) {
     console.error("Error reacting to message:", error);
     res.status(500).json({ message: "Could not update reaction" });
   }
+}
+
+export async function setMessagePin(req, res) {
+  try {
+    const { pinned } = req.body;
+    const message = await Message.findById(req.params.id);
+    if (!message || message.kind !== "message") return res.status(404).json({ message: "Message not found" });
+    const userId = String(req.user._id);
+    if (![String(message.senderId), String(message.receiverId)].includes(userId)) return res.status(403).json({ message: "You cannot pin this message" });
+    const isPinned = message.pinnedBy.some((pin) => String(pin.userId) === userId);
+    if (pinned && !isPinned) {
+      const peerId = String(message.senderId) === userId ? message.receiverId : message.senderId;
+      const count = await Message.countDocuments({ groupId: null, $or: [{ senderId: req.user._id, receiverId: peerId }, { senderId: peerId, receiverId: req.user._id }], "pinnedBy.userId": req.user._id });
+      if (count >= 5) return res.status(409).json({ message: "You can pin up to 5 messages per chat. Unpin one to continue." });
+      message.pinnedBy.push({ userId: req.user._id, pinnedAt: new Date() });
+    } else if (!pinned && isPinned) {
+      message.pinnedBy = message.pinnedBy.filter((pin) => String(pin.userId) !== userId);
+    }
+    await message.save();
+    const updated = await Message.findById(message._id).populate("senderId", "fullName profilePic");
+    io.to(`user:${message.senderId}`).emit("messageUpdated", updated);
+    io.to(`user:${message.receiverId}`).emit("messageUpdated", updated);
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("Error pinning message:", error);
+    res.status(500).json({ message: "Could not update pinned message" });
+  }
+}
+
+export async function deleteMessage(req, res) {
+  try {
+    const { id } = req.params;
+    const scope = req.body.scope === "everyone" ? "everyone" : "me";
+    const message = await Message.findById(id);
+    if (!message || message.kind === "streak-notice") return res.status(404).json({ message: "Message not found" });
+    const userId = String(req.user._id);
+    if (![String(message.senderId), String(message.receiverId)].includes(userId)) return res.status(403).json({ message: "You cannot delete this message" });
+    if (scope === "everyone") {
+      if (String(message.senderId) !== userId) return res.status(403).json({ message: "Only the sender can delete for everyone" });
+      await message.deleteOne();
+      io.to(`user:${message.senderId}`).emit("messageDeleted", { messageId: id });
+      io.to(`user:${message.receiverId}`).emit("messageDeleted", { messageId: id });
+    } else {
+      message.deletedFor = [...new Set([...(message.deletedFor || []).map(String), userId])];
+      await message.save();
+      io.to(`user:${userId}`).emit("messageDeleted", { messageId: id });
+    }
+    res.status(200).json({ messageId: id, scope });
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    res.status(500).json({ message: "Could not delete message" });
+  }
+}
+
+export async function setContactTag(req, res) {
+  const peerId = String(req.params.peerId);
+  const tag = typeof req.body.tag === "string" ? req.body.tag.trim().slice(0, 40) : "";
+  if (!await User.exists({ _id: peerId })) return res.status(404).json({ message: "User not found" });
+  const update = tag ? { $set: { [`contactTags.${peerId}`]: tag } } : { $unset: { [`contactTags.${peerId}`]: 1 } };
+  await User.updateOne({ _id: req.user._id }, update);
+  res.status(200).json({ peerId, tag });
+}
+
+export async function setOnlineStatusVisibility(req, res) {
+  const enabled = Boolean(req.body.enabled);
+  await User.updateOne({ _id: req.user._id }, { $set: { showOnlineStatus: enabled } });
+  io.emit("presenceVisibilityChanged", { userId: String(req.user._id), enabled });
+  res.status(200).json({ showOnlineStatus: enabled });
 }

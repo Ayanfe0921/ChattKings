@@ -20,6 +20,7 @@ export function ConversationRow({ user, selected, onSelect }) {
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold">{user.name}</p>
+        {user.peer.tag ? <span className="mt-0.5 inline-block rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">{user.peer.tag}</span> : null}
         {user.lastMessageText ? (
           <p className={`truncate text-xs ${user.unreadCount ? "font-medium text-foreground" : "text-muted"}`}>
             {user.lastMessageIsOwn ? "You: " : ""}{user.lastMessageText}

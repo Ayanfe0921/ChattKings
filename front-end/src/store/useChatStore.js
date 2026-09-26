@@ -24,6 +24,7 @@ export const useChatStore = create(
       replyingTo: null,
       isSoundEnabled: true,
       isSendingMedia: false,
+      messageSearchQuery: "",
 
       getUsers: async () => {
         set({ isUsersLoading: true });
@@ -84,6 +85,27 @@ export const useChatStore = create(
         } catch (error) {
           console.log("Error marking messages as read", error.message);
         }
+      },
+
+      setContactTag: async (peerId, tag) => {
+        try {
+          await axiosInstance.put(`/messages/contacts/${peerId}/tag`, { tag });
+          set((state) => ({ users: state.users.map((user) => String(user._id) === String(peerId) ? { ...user, contactTag: tag } : user), conversations: state.conversations.map((user) => String(user._id) === String(peerId) ? { ...user, contactTag: tag } : user) }));
+        } catch (error) { toast.error(error.response?.data?.message || "Could not save tag"); }
+      },
+
+      deleteMessage: async (messageId, scope) => {
+        try {
+          await axiosInstance.delete(`/messages/${messageId}`, { data: { scope } });
+          set((state) => ({ messages: state.messages.filter((message) => String(message._id) !== String(messageId)) }));
+        } catch (error) { toast.error(error.response?.data?.message || "Could not delete message"); }
+      },
+
+      setMessagePin: async (messageId, pinned) => {
+        try {
+          const response = await axiosInstance.patch(`/messages/${messageId}/pin`, { pinned });
+          set((state) => ({ messages: state.messages.map((message) => String(message._id) === String(messageId) ? response.data : message) }));
+        } catch (error) { toast.error(error.response?.data?.message || "Could not update pinned messages"); }
       },
 
       subscribeToStreakUpdates: () => {
@@ -203,7 +225,7 @@ export const useChatStore = create(
                 ? {
                     ...conversation,
                     lastMessageText:
-                      newMessage.text || (newMessage.image ? "Photo" : "Video"),
+                      newMessage.text || (newMessage.image ? "Photo" : newMessage.video ? "Video" : newMessage.audio ? "Voice note" : newMessage.sticker ? "Sticker" : "Message"),
                     lastMessageSenderId: newMessage.senderId,
                     lastMessageAt: newMessage.createdAt,
                     unreadCount: isOpen
@@ -253,6 +275,8 @@ export const useChatStore = create(
             ),
           }));
         });
+        socket.off("messageDeleted");
+        socket.on("messageDeleted", ({ messageId }) => set((state) => ({ messages: state.messages.filter((message) => String(message._id) !== String(messageId)) })));
       },
 
       unsubscribeFromMessages: () => {
@@ -261,6 +285,7 @@ export const useChatStore = create(
         socket?.off("messagesRead");
         socket?.off("streakNotice");
         socket?.off("messageUpdated");
+        socket?.off("messageDeleted");
       },
 
       setSelectedUser: (selectedUser) => set({ selectedUser }),
@@ -283,6 +308,7 @@ export const useChatStore = create(
       },
 
       setSearchQuery: (searchQuery) => set({ searchQuery }),
+      setMessageSearchQuery: (messageSearchQuery) => set({ messageSearchQuery }),
       setSidebarTab: (sidebarTab) => set({ sidebarTab }),
       setWorkspaceSection: (workspaceSection) => set({ workspaceSection }),
       setComposerText: (composerText) => set({ composerText }),

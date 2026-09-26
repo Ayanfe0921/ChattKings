@@ -1,6 +1,6 @@
 import { Avatar, Button } from "@heroui/react";
 import { useState } from "react";
-import { ChevronLeftIcon, PhoneIcon, Volume2Icon, VolumeXIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, PhoneIcon, Volume2Icon, VolumeXIcon, XIcon, SearchIcon, PlusIcon } from "lucide-react";
 import { AppLogo } from "../AppLogo";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
 
@@ -54,6 +54,13 @@ function CallAction({ peer }) {
 }
 
 export function ChatHeader() {
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [tagEditorOpen, setTagEditorOpen] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
+  const messageSearchQuery = useChatStore((state) => state.messageSearchQuery);
+  const setMessageSearchQuery = useChatStore((state) => state.setMessageSearchQuery);
+  const setContactTag = useChatStore((state) => state.setContactTag);
+  const users = useChatStore((state) => state.users);
   const isSoundEnabled = useChatStore((state) => state.isSoundEnabled);
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
   const setSoundEnabled = useChatStore((state) => state.setSoundEnabled);
@@ -79,6 +86,10 @@ export function ChatHeader() {
 
       {activeConversation ? (
         <>
+          <div className="relative">
+            {users.find((user) => String(user._id) === String(activeConversation.id))?.contactTag ? null : <Button variant="ghost" size="sm" isIconOnly aria-label="Add chat tag" onPress={() => { setTagDraft(""); setTagEditorOpen((open) => !open); }}><PlusIcon className="size-5" /></Button>}
+            {tagEditorOpen ? <form className="absolute left-0 top-full z-30 mt-2 flex w-64 gap-2 rounded-xl border border-border bg-background p-3 shadow-xl" onSubmit={(event) => { event.preventDefault(); setContactTag(activeConversation.id, tagDraft); setTagEditorOpen(false); }}><input autoFocus value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} placeholder="Friend, family…" maxLength={40} className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1.5 text-sm" /><button className="rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground">Save</button></form> : null}
+          </div>
           <AvatarWithOnlineIndicator isOnline={Boolean(activeConversation.peer.isOnline)}>
             <Avatar className="size-9 shrink-0">
               <Avatar.Image
@@ -130,6 +141,8 @@ export function ChatHeader() {
           }
         />
 
+        {activeConversation ? <Button variant="ghost" size="sm" isIconOnly aria-label="Search messages in this chat" aria-pressed={messageSearchOpen} onPress={() => { setMessageSearchOpen((open) => !open); setMessageSearchQuery(""); }}><SearchIcon className="size-5" /></Button> : null}
+
         <Button
           variant="ghost"
           size="sm"
@@ -158,6 +171,7 @@ export function ChatHeader() {
           </Button>
         ) : null}
       </div>
+      {messageSearchOpen && activeConversation ? <div className="basis-full px-2 pb-1"><input autoFocus value={messageSearchQuery} onChange={(event) => setMessageSearchQuery(event.target.value)} placeholder="Search messages in this chat" className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent" /></div> : null}
     </header>
   );
 }

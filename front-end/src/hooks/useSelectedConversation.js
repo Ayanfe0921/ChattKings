@@ -26,6 +26,8 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
     time: formatMessageTime(message.createdAt),
     imageUrl: message.image,
     videoUrl: message.video,
+    audioUrl: message.audio,
+    _id: message._id,
     kind: message.kind || "message",
     sticker: message.sticker || "",
     replyTo: message.replyTo || null,
@@ -33,6 +35,7 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
       userId: reaction.userId?._id || reaction.userId,
       emoji: reaction.emoji,
     })),
+    pinnedBy: (message.pinnedBy || []).map((pin) => ({ userId: pin.userId?._id || pin.userId, pinnedAt: pin.pinnedAt })),
   }));
 
   return {
@@ -40,7 +43,7 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
     peer: {
       name: user.fullName,
       subtitle: user.email,
-      isOnline: onlineUsers.includes(user._id),
+      isOnline: user.showOnlineStatus !== false && onlineUsers.includes(user._id),
       avatarUrl: user.profilePic,
       initials: getInitials(user.fullName),
     },

@@ -54,6 +54,11 @@ export const useAuthStore = create((set, get) => ({
     socket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
     });
+
+    socket.on("presenceVisibilityChanged", ({ userId, enabled }) => {
+      const update = (items) => items.map((user) => String(user._id) === String(userId) ? { ...user, showOnlineStatus: enabled } : user);
+      import("./useChatStore").then(({ useChatStore }) => useChatStore.setState((state) => ({ users: update(state.users), conversations: update(state.conversations) })));
+    });
   },
 
   disconnectSocket: () => {

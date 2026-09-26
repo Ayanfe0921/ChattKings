@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlusIcon, LoaderIcon, MessageCircleIcon, Trash2Icon } from "lucide-react";
+import { ImagePlusIcon, LoaderIcon, MessageCircleIcon, Trash2Icon, MicIcon, SquareIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../../lib/axios";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -11,6 +11,9 @@ export function PostsPanel() {
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
   const setWorkspaceSection = useChatStore((state) => state.setWorkspaceSection);
   const setComposerText = useChatStore((state) => state.setComposerText);
+  const sendMediaMessage = useChatStore((state) => state.sendMediaMessage);
+  const [recordingPostId, setRecordingPostId] = useState(null);
+  const recorderRef = useRef(null);
   const fileInput = useRef(null);
   const [posts, setPosts] = useState([]);
   const [file, setFile] = useState(null);
@@ -81,6 +84,24 @@ export function PostsPanel() {
     }
   };
 
+  const recordPostReply = async (peerId, post) => {
+    if (recordingPostId) { recorderRef.current?.stop(); setRecordingPostId(null); return; }
+    try {
+      setActiveConversationId(peerId);
+      setWorkspaceSection("chat");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      const chunks = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (chunks.length) await sendMediaMessage({ conversationId: peerId, file: new File(chunks, `post-voice-reply-${Date.now()}.webm`, { type: recorder.mimeType || "audio/webm" }) });
+      };
+      recorder.start(); setRecordingPostId(String(post._id));
+    } catch { toast.error("Allow microphone access to record a voice reply"); }
+  };
+
   return (
     <section className="mx-auto w-full max-w-3xl p-4 sm:p-6" aria-label="Posts">
       <h1 className="text-xl font-semibold">Posts</h1>
@@ -149,6 +170,7 @@ export function PostsPanel() {
               <time className="text-[10px] text-muted">{new Date(post.createdAt).toLocaleString()}</time>
               </div>
               {String(post.userId?._id) !== String(authUser?._id) ? (
+                <div className="flex items-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -162,6 +184,8 @@ export function PostsPanel() {
                 >
                   <MessageCircleIcon className="size-5" />
                 </button>
+                <button type="button" aria-label={recordingPostId === String(post._id) ? "Stop and send voice reply" : "Record voice reply"} onClick={() => recordPostReply(post.userId._id, post)} className={`grid size-9 place-items-center rounded-full ${recordingPostId === String(post._id) ? "bg-accent text-accent-foreground" : "text-accent hover:bg-accent/10"}`}>{recordingPostId === String(post._id) ? <SquareIcon className="size-4" /> : <MicIcon className="size-4" />}</button>
+                </div>
               ) : null}
               {String(post.userId?._id) === String(authUser?._id) ? (
                 <button

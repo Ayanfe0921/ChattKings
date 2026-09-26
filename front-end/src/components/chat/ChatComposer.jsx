@@ -1,10 +1,11 @@
 import { Button, TextArea } from "@heroui/react";
-import { ImageIcon, LoaderIcon, SendHorizontalIcon, SmileIcon, XIcon } from "lucide-react";
+import { ImageIcon, LoaderIcon, SendHorizontalIcon, SmileIcon, XIcon, MicIcon, SquareIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import useKeyboardSound from "../../hooks/useKeyboardSound";
 import { useChatStore } from "../../store/useChatStore";
 import { useSelectedConversation } from "../../hooks/useSelectedConversation";
 import { EmojiStickerPicker } from "./EmojiStickerPicker";
+import toast from "react-hot-toast";
 
 export function ChatComposer() {
   const composerText = useChatStore((state) => state.composerText);
@@ -20,6 +21,9 @@ export function ChatComposer() {
   const { playRandomKeyStrokeSound } = useKeyboardSound();
   const mediaInputRef = useRef(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
 
   const playSoundIfEnabled = () => {
     if (isSoundEnabled) playRandomKeyStrokeSound();
@@ -58,6 +62,23 @@ export function ChatComposer() {
     });
 
     if (didSendMessage) playSoundIfEnabled();
+  };
+
+  const toggleRecording = async () => {
+    if (isRecording) { recorderRef.current?.stop(); setIsRecording(false); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      const chunks = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (chunks.length) await sendMediaMessage({ conversationId: activeConversationId, file: new File(chunks, `voice-note-${Date.now()}.webm`, { type: recorder.mimeType || "audio/webm" }) });
+      };
+      recorder.start(); setIsRecording(true);
+    } catch { toast.error("Allow microphone access to record a voice note"); }
   };
 
   return (
@@ -118,9 +139,7 @@ export function ChatComposer() {
           className="flex-1 rounded-full"
         />
 
-        <Button variant="primary" isIconOnly isDisabled={!composerText.trim()} onPress={handleSend}>
-          <SendHorizontalIcon className="size-5" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-0.5"><Button variant={isRecording ? "primary" : "ghost"} isIconOnly aria-label={isRecording ? "Stop recording and send" : "Record voice note"} className="size-9 text-accent" onPress={toggleRecording}>{isRecording ? <SquareIcon className="size-4" /> : <MicIcon className="size-5" />}</Button><Button variant="primary" isIconOnly isDisabled={!composerText.trim()} onPress={handleSend}><SendHorizontalIcon className="size-5" /></Button></div>
       </div>
     </footer>
   );
