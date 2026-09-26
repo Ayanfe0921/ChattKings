@@ -21,7 +21,12 @@ export function CodexChatPanel() {
       .catch((error) => toast.error(error.response?.data?.message || "Could not load Codex chat"))
       .finally(() => setLoading(false));
   }, []);
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+  useEffect(() => {
+    const element = bottomRef.current;
+    if (typeof element?.scrollIntoView === "function") {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   const send = async (event) => {
     event.preventDefault();
@@ -62,7 +67,7 @@ export function CodexChatPanel() {
       <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         {loading ? <p className="py-8 text-center text-sm text-muted">Loading your chat…</p> : null}
         {!loading && !messages.length ? <div className="grid h-full min-h-48 place-items-center text-center"><div><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent"><BotIcon className="size-7" /></span><h2 className="mt-4 font-semibold">Chat with Codex</h2><p className="mt-1 text-sm text-muted">Ask a question or get help with an idea.</p></div></div> : null}
-        {messages.map((message, index) => <div key={`${message.createdAt || "new"}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+        {(Array.isArray(messages) ? messages : []).map((message, index) => <div key={`${message.createdAt || "new"}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
           <div className={`max-w-[88%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm ${message.role === "user" ? "rounded-br-md bg-accent text-accent-foreground" : "rounded-bl-md bg-surface"}`}>{message.content}</div>
         </div>)}
         {sending ? <div className="flex"><div className="rounded-2xl rounded-bl-md bg-surface px-4 py-3"><LoaderIcon className="size-4 animate-spin text-accent" /></div></div> : null}
