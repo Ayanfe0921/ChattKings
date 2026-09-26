@@ -3,6 +3,11 @@ import { BotIcon, LoaderIcon, SendIcon, Trash2Icon } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../../lib/axios";
 
+const asMessages = (data) => {
+  const messages = Array.isArray(data) ? data : data?.messages;
+  return Array.isArray(messages) ? messages : [];
+};
+
 export function CodexChatPanel() {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -12,7 +17,7 @@ export function CodexChatPanel() {
 
   useEffect(() => {
     axiosInstance.get("/ai-chat")
-      .then((response) => setMessages(response.data))
+      .then((response) => setMessages(asMessages(response.data)))
       .catch((error) => toast.error(error.response?.data?.message || "Could not load Codex chat"))
       .finally(() => setLoading(false));
   }, []);
@@ -27,7 +32,8 @@ export function CodexChatPanel() {
     setSending(true);
     try {
       const response = await axiosInstance.post("/ai-chat", { message });
-      setMessages((current) => [...current.filter((item) => !item.optimistic), ...response.data]);
+      const savedMessages = asMessages(response.data);
+      setMessages((current) => [...current.filter((item) => !item.optimistic), ...savedMessages]);
     } catch (error) {
       setMessages((current) => current.filter((item) => !item.optimistic));
       setDraft(message);
