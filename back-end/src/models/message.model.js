@@ -32,6 +32,15 @@ const messageSchema = new mongoose.Schema(
       text: { type: String, maxlength: 500 },
       mediaType: { type: String, enum: ["image", "video", "audio", "sticker", "text"] },
     },
+    postReply: {
+      postId: { type: mongoose.Schema.Types.ObjectId, ref: "Post" },
+      mediaUrl: { type: String },
+      mediaType: { type: String, enum: ["image", "video", "quote"] },
+      caption: { type: String, maxlength: 300 },
+      quoteText: { type: String, maxlength: 1000 },
+      quoteAuthor: { type: String, maxlength: 160 },
+      authorName: { type: String, maxlength: 120 },
+    },
     reactions: [{
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       emoji: { type: String, required: true, maxlength: 16 },

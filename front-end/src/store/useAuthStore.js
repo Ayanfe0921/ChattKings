@@ -30,6 +30,15 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  syncProfile: async () => {
+    try {
+      const res = await axiosInstance.patch("/auth/profile");
+      set({ authUser: res.data });
+    } catch (error) {
+      console.error("Could not sync profile:", error.message);
+    }
+  },
+
   clearAuth: () => {
     set({
       authUser: null,
@@ -58,6 +67,14 @@ export const useAuthStore = create((set, get) => ({
     socket.on("presenceVisibilityChanged", ({ userId, enabled }) => {
       const update = (items) => items.map((user) => String(user._id) === String(userId) ? { ...user, showOnlineStatus: enabled } : user);
       import("./useChatStore").then(({ useChatStore }) => useChatStore.setState((state) => ({ users: update(state.users), conversations: update(state.conversations) })));
+    });
+
+    socket.on("userUpdated", (updatedUser) => {
+      if (String(get().authUser?._id) === String(updatedUser._id)) set({ authUser: { ...get().authUser, ...updatedUser } });
+      import("./useChatStore").then(({ useChatStore }) => useChatStore.setState((state) => {
+        const update = (user) => String(user?._id) === String(updatedUser._id) ? { ...user, ...updatedUser } : user;
+        return { users: state.users.map(update), conversations: state.conversations.map(update), selectedUser: update(state.selectedUser) };
+      }));
     });
   },
 

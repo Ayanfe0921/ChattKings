@@ -22,6 +22,7 @@ export const useChatStore = create(
       workspaceSection: "chat",
       composerText: "",
       replyingTo: null,
+      composerPostReply: null,
       isSoundEnabled: true,
       isSendingMedia: false,
       messageSearchQuery: "",
@@ -168,6 +169,7 @@ export const useChatStore = create(
                 ),
             composerText: "",
             replyingTo: null,
+            composerPostReply: null,
           }));
           get().getConversations();
           return true;
@@ -180,10 +182,11 @@ export const useChatStore = create(
       },
 
       setReplyingTo: (replyingTo) => set({ replyingTo }),
+      setComposerPostReply: (composerPostReply) => set({ composerPostReply }),
 
       sendStickerMessage: async ({ conversationId, sticker }) => {
         if (!conversationId || !sticker) return false;
-        return get().sendMessage({ sticker, replyToId: get().replyingTo?._id || get().replyingTo?.id });
+        return get().sendMessage({ sticker, replyToId: get().replyingTo?._id || get().replyingTo?.id, postReply: get().composerPostReply });
       },
 
       toggleMessageReaction: async (messageId, emoji) => {
@@ -321,6 +324,7 @@ export const useChatStore = create(
         return get().sendMessage({
           text: messageText,
           replyToId: get().replyingTo?._id || get().replyingTo?.id,
+          postReply: get().composerPostReply,
         });
       },
 
@@ -331,6 +335,7 @@ export const useChatStore = create(
         formData.append("media", file);
         const replyToId = get().replyingTo?._id || get().replyingTo?.id;
         if (replyToId) formData.append("replyToId", replyToId);
+        if (get().composerPostReply) formData.append("postReply", JSON.stringify(get().composerPostReply));
 
         set({ isSendingMedia: true });
         try {

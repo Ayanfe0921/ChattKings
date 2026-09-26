@@ -3,16 +3,18 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { Navigate, Route, Routes } from "react-router";
 import ChatPage from "./pages/ChatPage";
 import AuthPage from "./pages/AuthPage";
-import { useAuth } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import PageLoader from "./components/PageLoader";
 import { useAuthStore } from "./store/useAuthStore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Toaster } from "react-hot-toast";
 
 function App() {
   const { isSignedIn, isLoaded } = useAuth();
+  const { user: clerkUser } = useUser();
   const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
+  const clerkProfileSnapshot = useRef(null);
 
   // option 1
   // const { checkAuth, isCheckingAuth, clearAuth } = useAuthStore();
@@ -20,6 +22,7 @@ function App() {
   // option 2 - better for performance
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const checkAuth = useAuthStore((state) => state.checkAuth);
+  const syncProfile = useAuthStore((state) => state.syncProfile);
   const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth);
   const authError = useAuthStore((state) => state.authError);
 
@@ -29,6 +32,19 @@ function App() {
     if (isSignedIn) checkAuth();
     else clearAuth();
   }, [checkAuth, clearAuth, isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser) return;
+    const profile = [clerkUser.id, clerkUser.firstName, clerkUser.lastName, clerkUser.imageUrl].join("|");
+    if (clerkProfileSnapshot.current === null) {
+      clerkProfileSnapshot.current = profile;
+      return;
+    }
+    if (clerkProfileSnapshot.current !== profile) {
+      clerkProfileSnapshot.current = profile;
+      syncProfile();
+    }
+  }, [isLoaded, isSignedIn, clerkUser?.id, clerkUser?.firstName, clerkUser?.lastName, clerkUser?.imageUrl, syncProfile]);
 
   useEffect(() => {
     if (isLoaded) {

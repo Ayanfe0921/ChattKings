@@ -280,6 +280,10 @@ export async function sendMessage(req, res) {
   try {
     const { text } = req.body;
     const { replyToId, sticker } = req.body;
+    let postReply = req.body.postReply;
+    if (typeof postReply === "string") {
+      try { postReply = JSON.parse(postReply); } catch { return res.status(400).json({ message: "Invalid post reply context" }); }
+    }
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
 
@@ -327,6 +331,18 @@ export async function sendMessage(req, res) {
         mediaType: repliedMessage.image ? "image" : repliedMessage.video ? "video" : repliedMessage.sticker ? "sticker" : "text",
       };
     }
+    if (postReply) {
+      if (!postReply.postId || !["image", "video", "quote"].includes(postReply.mediaType)) return res.status(400).json({ message: "Invalid post reply context" });
+      postReply = {
+        postId: postReply.postId,
+        mediaUrl: String(postReply.mediaUrl || "").slice(0, 2048),
+        mediaType: postReply.mediaType,
+        caption: String(postReply.caption || "").slice(0, 300),
+        quoteText: String(postReply.quoteText || "").slice(0, 1000),
+        quoteAuthor: String(postReply.quoteAuthor || "").slice(0, 160),
+        authorName: String(postReply.authorName || "").slice(0, 120),
+      };
+    }
     if (!text?.trim() && !imageUrl && !videoUrl && !audioUrl && !sticker) {
       return res.status(400).json({ message: "Write a message or choose a sticker" });
     }
@@ -340,6 +356,7 @@ export async function sendMessage(req, res) {
       audio: audioUrl,
       sticker,
       replyTo,
+      postReply,
     });
 
     await newMessage.save();

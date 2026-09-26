@@ -10,7 +10,7 @@ export function PostsPanel() {
   const socket = useAuthStore((state) => state.socket);
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
   const setWorkspaceSection = useChatStore((state) => state.setWorkspaceSection);
-  const setComposerText = useChatStore((state) => state.setComposerText);
+  const setComposerPostReply = useChatStore((state) => state.setComposerPostReply);
   const sendMediaMessage = useChatStore((state) => state.sendMediaMessage);
   const [recordingPostId, setRecordingPostId] = useState(null);
   const recorderRef = useRef(null);
@@ -40,11 +40,14 @@ export function PostsPanel() {
     };
     const handleDelete = ({ postId }) =>
       setPosts((items) => items.filter((item) => String(item._id) !== String(postId)));
+    const handleUserUpdated = (user) => setPosts((items) => items.map((post) => String(post.userId?._id) === String(user._id) ? { ...post, userId: { ...post.userId, ...user } } : post));
     socket.on("newPost", handlePost);
     socket.on("deletePost", handleDelete);
+    socket.on("userUpdated", handleUserUpdated);
     return () => {
       socket.off("newPost", handlePost);
       socket.off("deletePost", handleDelete);
+      socket.off("userUpdated", handleUserUpdated);
     };
   }, [socket]);
 
@@ -84,10 +87,13 @@ export function PostsPanel() {
     }
   };
 
+  const makePostReply = (post) => ({ postId: post._id, mediaUrl: post.mediaUrl || "", mediaType: post.mediaType, caption: post.caption || "", quoteText: post.quoteText || "", quoteAuthor: post.quoteAuthor || "", authorName: post.userId?.fullName || "Chat user" });
+
   const recordPostReply = async (peerId, post) => {
     if (recordingPostId) { recorderRef.current?.stop(); setRecordingPostId(null); return; }
     try {
       setActiveConversationId(peerId);
+      setComposerPostReply(makePostReply(post));
       setWorkspaceSection("chat");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -175,7 +181,7 @@ export function PostsPanel() {
                   type="button"
                   onClick={() => {
                     setActiveConversationId(post.userId._id);
-                    setComposerText(post.caption ? `About your post: “${post.caption}” — ` : "About your photo/video post — ");
+                    setComposerPostReply(makePostReply(post));
                     setWorkspaceSection("chat");
                   }}
                   className="grid size-9 place-items-center rounded-lg text-accent hover:bg-accent/10"

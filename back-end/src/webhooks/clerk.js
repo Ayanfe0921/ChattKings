@@ -1,6 +1,7 @@
 import express from "express";
 import User from "../models/user.model.js";
 import { verifyWebhook } from "@clerk/backend/webhooks";
+import { io } from "../lib/socket.js";
 
 const router = express.Router();
 
@@ -33,11 +34,12 @@ router.post("/", async (req, res) => {
       const fullName =
         [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || email?.split("@")[0];
 
-      await User.findOneAndUpdate(
+      const updatedUser = await User.findOneAndUpdate(
         { clerkId: u.id },
         { clerkId: u.id, email, fullName, profilePic: u.image_url },
         { new: true, upsert: true, setDefaultsOnInsert: true },
       );
+      io.emit("userUpdated", { _id: String(updatedUser._id), fullName: updatedUser.fullName, profilePic: updatedUser.profilePic, email: updatedUser.email });
     }
 
     if (evt.type === "user.deleted") {

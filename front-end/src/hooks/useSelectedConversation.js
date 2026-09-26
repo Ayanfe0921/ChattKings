@@ -31,6 +31,7 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
     kind: message.kind || "message",
     sticker: message.sticker || "",
     replyTo: message.replyTo || null,
+    postReply: message.postReply || null,
     reactions: (message.reactions || []).map((reaction) => ({
       userId: reaction.userId?._id || reaction.userId,
       emoji: reaction.emoji,

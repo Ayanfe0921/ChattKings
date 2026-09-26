@@ -16,6 +16,8 @@ export function ChatComposer() {
   const setComposerText = useChatStore((state) => state.setComposerText);
   const replyingTo = useChatStore((state) => state.replyingTo);
   const setReplyingTo = useChatStore((state) => state.setReplyingTo);
+  const composerPostReply = useChatStore((state) => state.composerPostReply);
+  const setComposerPostReply = useChatStore((state) => state.setComposerPostReply);
   const sendStickerMessage = useChatStore((state) => state.sendStickerMessage);
   const { activeConversation, activeConversationId } = useSelectedConversation();
   const { playRandomKeyStrokeSound } = useKeyboardSound();
@@ -83,6 +85,7 @@ export function ChatComposer() {
 
   return (
     <footer className="shrink-0 border-t border-border px-1.5 pb-2 pt-2 sm:px-2">
+      {composerPostReply ? <div className="mx-auto mb-2 flex max-w-full items-center gap-2 rounded-xl border-l-2 border-accent bg-surface px-3 py-2"><div className="min-w-0 flex-1"><p className="text-[11px] font-semibold text-accent">Replying to {composerPostReply.authorName || "post"}</p><p className="truncate text-xs text-muted">{composerPostReply.caption || composerPostReply.quoteText || (composerPostReply.mediaType === "video" ? "Video post" : composerPostReply.mediaType === "quote" ? "Quote post" : "Photo post")}</p></div><button type="button" onClick={() => setComposerPostReply(null)} className="grid size-7 place-items-center rounded-full hover:bg-background" aria-label="Cancel post reply"><XIcon className="size-4" /></button></div> : null}
       {replyingTo ? <div className="mx-auto mb-2 flex max-w-full items-center gap-2 rounded-xl border-l-2 border-accent bg-surface px-3 py-2">
         <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold text-accent">Replying to {replyingTo.role === "me" ? "yourself" : activeConversation?.peer.name || "message"}</p><p className="truncate text-xs text-muted">{replySummary}</p></div>
         <button type="button" onClick={() => setReplyingTo(null)} className="grid size-7 place-items-center rounded-full hover:bg-background" aria-label="Cancel reply"><XIcon className="size-4" /></button>
