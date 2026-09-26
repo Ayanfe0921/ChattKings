@@ -8,7 +8,7 @@ import { SearchField, Tabs } from "@heroui/react";
 import { MessageSquareIcon, UsersIcon } from "lucide-react";
 import { ConversationRow } from "./ConversationRow";
 
-function mapUserForList(user, onlineUsers) {
+function mapUserForList(user, onlineUsers, streak) {
   return {
     conversationId: user._id,
     id: user._id,
@@ -16,6 +16,7 @@ function mapUserForList(user, onlineUsers) {
     avatarUrl: user.profilePic,
     initials: getInitials(user.fullName),
     isOnline: onlineUsers.includes(user._id),
+    streak,
     peer: {
       name: user.fullName,
       avatarUrl: user.profilePic,
@@ -27,8 +28,8 @@ function mapUserForList(user, onlineUsers) {
 
 function ChatSidebar() {
   const conversations = useChatStore((state) => state.conversations);
+  const streaks = useChatStore((state) => state.streaks);
 
-  console.log(conversations);
   const users = useChatStore((state) => state.users);
 
   const searchQuery = useChatStore((state) => state.searchQuery);
@@ -45,8 +46,12 @@ function ChatSidebar() {
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
-  const conversationUsers = conversations.map((user) => mapUserForList(user, onlineUsers));
-  const allUsers = users.map((user) => mapUserForList(user, onlineUsers));
+  const conversationUsers = conversations.map((user) =>
+    mapUserForList(user, onlineUsers, streaks[String(user._id)]),
+  );
+  const allUsers = users.map((user) =>
+    mapUserForList(user, onlineUsers, streaks[String(user._id)]),
+  );
 
   const filteredConversations = normalizedSearchQuery
     ? conversationUsers.filter((conversation) =>

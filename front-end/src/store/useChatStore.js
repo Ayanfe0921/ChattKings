@@ -10,6 +10,7 @@ export const useChatStore = create(
     (set, get) => ({
       users: [],
       conversations: [],
+      streaks: {},
       messages: [],
       selectedUser: null,
       isConversationsLoading: false,
@@ -53,6 +54,34 @@ export const useChatStore = create(
         }
       },
 
+      getStreaks: async () => {
+        try {
+          const res = await axiosInstance.get("/messages/streaks");
+          set({
+            streaks: Object.fromEntries(
+              res.data.map((streak) => [String(streak.peerId), streak]),
+            ),
+          });
+        } catch (error) {
+          console.log("Error in getStreaks", error.message);
+        }
+      },
+
+      subscribeToStreakUpdates: () => {
+        const socket = useAuthStore.getState().socket;
+        if (!socket) return;
+        socket.off("streakUpdate");
+        socket.on("streakUpdate", (streak) => {
+          set((state) => ({
+            streaks: { ...state.streaks, [String(streak.peerId)]: streak },
+          }));
+        });
+      },
+
+      unsubscribeFromStreakUpdates: () => {
+        useAuthStore.getState().socket?.off("streakUpdate");
+      },
+
       getMessages: async (userId) => {
         if (!userId) return;
         set({ isMessagesLoading: true });
@@ -93,7 +122,9 @@ export const useChatStore = create(
               (message) => String(message._id) === String(res.data._id),
             )
               ? state.messages
-              : [...state.messages, res.data],
+              : [...state.messages, res.data].sort(
+                  (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+                ),
             composerText: "",
           }));
           get().getConversations();
@@ -129,11 +160,27 @@ export const useChatStore = create(
 
           get().getConversations();
         });
+
+        socket.off("streakNotice");
+        socket.on("streakNotice", (notice) => {
+          const isInConversation =
+            String(notice.senderId) === String(userId) ||
+            String(notice.receiverId) === String(userId);
+          if (!isInConversation) return;
+          set((state) => ({
+            messages: state.messages.some(
+              (message) => String(message._id) === String(notice._id),
+            )
+              ? state.messages
+              : [...state.messages, notice],
+          }));
+        });
       },
 
       unsubscribeFromMessages: () => {
         const socket = useAuthStore.getState().socket;
         socket?.off("newMessage");
+        socket?.off("streakNotice");
       },
 
       setSelectedUser: (selectedUser) => set({ selectedUser }),

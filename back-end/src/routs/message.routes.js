@@ -2,6 +2,7 @@ import express from "express";
 import {
   getConversationsForSidebar,
   getMessages,
+  getStreaks,
   getUsersForSidebar,
   sendMessage,
 } from "../controllers/message.controller.js";
@@ -14,6 +15,7 @@ router.use(protectRoute);
 
 router.get("/users", getUsersForSidebar);
 router.get("/conversations", getConversationsForSidebar);
+router.get("/streaks", getStreaks);
 router.get("/:id", getMessages);
 router.post("/send/:id", upload.single("media"), sendMessage);
 

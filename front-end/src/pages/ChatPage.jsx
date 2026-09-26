@@ -11,6 +11,9 @@ function ChatPage() {
   const { frameStyle } = useWallpaper();
 
   const getConversations = useChatStore((state) => state.getConversations);
+  const getStreaks = useChatStore((state) => state.getStreaks);
+  const subscribeToStreakUpdates = useChatStore((state) => state.subscribeToStreakUpdates);
+  const unsubscribeFromStreakUpdates = useChatStore((state) => state.unsubscribeFromStreakUpdates);
   const getMessages = useChatStore((state) => state.getMessages);
   const getUsers = useChatStore((state) => state.getUsers);
   const subscribeToMessages = useChatStore((state) => state.subscribeToMessages);
@@ -21,7 +24,13 @@ function ChatPage() {
   useEffect(() => {
     getUsers();
     getConversations();
-  }, [getConversations, getUsers]);
+    getStreaks();
+  }, [getConversations, getStreaks, getUsers]);
+
+  useEffect(() => {
+    subscribeToStreakUpdates();
+    return () => unsubscribeFromStreakUpdates();
+  }, [subscribeToStreakUpdates, unsubscribeFromStreakUpdates]);
 
   useEffect(() => {
     if (!activeConversationId) return;

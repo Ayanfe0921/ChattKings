@@ -5,6 +5,16 @@ import { MessageVideo } from "./MessageVideo";
 const IMAGE_TRANSFORM = "q-auto,w-640,f-auto";
 
 export function MessageBubble({ message }) {
+  if (message.kind === "streak-notice") {
+    return (
+      <div className="flex w-full justify-center py-1" role="status">
+        <p className="rounded-full bg-accent/10 px-3 py-1.5 text-center text-xs font-medium text-accent">
+          {message.text}
+        </p>
+      </div>
+    );
+  }
+
   const isOwnMessage = message.role === "me";
   const hasImage = Boolean(message.imageUrl);
   const hasVideo = Boolean(message.videoUrl);

@@ -1,5 +1,6 @@
 import { Avatar } from "@heroui/react";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
+import { StreakIndicator } from "./StreakIndicator";
 
 export function ConversationRow({ user, selected, onSelect }) {
   return (
@@ -20,6 +21,7 @@ export function ConversationRow({ user, selected, onSelect }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold">{user.name}</p>
       </div>
+      <StreakIndicator streak={user.streak} compact />
     </button>
   );
 }

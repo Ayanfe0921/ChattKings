@@ -37,8 +37,8 @@ export function HeroPanel() {
                         <img
                             src="/auth.png"
                             alt=""
-                            width={640}
-                            height={640}
+                            width={1024}
+                            height={1536}
                             className={heroImageClassName}
                             draggable={false}
                             decoding="async"
@@ -47,7 +47,7 @@ export function HeroPanel() {
                             aria-hidden="true"
                             viewBox="0 0 200 240"
                             preserveAspectRatio="none"
-                            className="pointer-events-none absolute left-[29%] top-[84.5%] z-1 h-[14%] w-[42%] overflow-visible mix-blend-screen"
+                            className="pointer-events-none absolute left-[26%] top-[85.5%] z-1 h-[14%] w-[42%] overflow-visible mix-blend-screen"
                         >
                             <defs>
                                 <linearGradient id="rocket-flame" x1="0" y1="0" x2="0" y2="1">
@@ -75,12 +75,12 @@ export function HeroPanel() {
                                 className="origin-top animate-[auth-flame-glow_180ms_ease-in-out_infinite_alternate] motion-reduce:animate-none"
                             />
                             <path
-                                d="M72 0 C77 34 53 48 68 91 C76 114 89 133 96 194 C104 146 125 119 133 91 C146 48 121 29 128 0 C115 26 107 39 100 60 C93 38 83 24 72 0Z"
+                                d="M100 0 C94 25 72 43 68 78 C63 119 87 153 96 194 C105 151 137 119 132 78 C128 43 106 25 100 0Z"
                                 fill="url(#rocket-flame)"
                                 className="origin-top animate-[auth-flame_220ms_ease-in-out_infinite_alternate] motion-reduce:animate-none"
                             />
                             <path
-                                d="M88 0 C94 25 79 42 91 73 C96 88 99 106 101 133 C108 101 119 81 116 60 C114 39 104 21 108 0 C101 18 98 25 96 37 C94 22 92 11 88 0Z"
+                                d="M100 0 C95 21 85 38 87 64 C89 88 98 111 101 133 C105 108 116 86 115 64 C114 39 105 20 100 0Z"
                                 fill="#fff8c9"
                                 opacity="0.94"
                                 className="origin-top animate-[auth-flame-core_150ms_ease-in-out_infinite_alternate] motion-reduce:animate-none"

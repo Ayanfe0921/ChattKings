@@ -21,6 +21,11 @@ const messageSchema = new mongoose.Schema(
     video: {
       type: String,
     },
+    kind: {
+      type: String,
+      enum: ["message", "streak-notice"],
+      default: "message",
+    },
   },
   { timestamps: true },
 );
