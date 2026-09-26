@@ -24,6 +24,7 @@ export async function sendAIMessage(req, res) {
   try {
     const chat = await AIChat.findOne({ userId: req.user._id }).select("messages");
     const history = (chat?.messages || []).slice(-20).map(({ role, content }) => ({ role, content }));
+    const model = process.env.OPENAI_MODEL?.trim() || "gpt-5.3-codex";
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -31,7 +32,7 @@ export async function sendAIMessage(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.3-codex",
+        model,
         instructions: "You are Codex, the helpful AI assistant inside ChattKings. Be clear, friendly, and concise. Help with everyday questions and coding. Do not claim access to the user's files or account unless provided in the conversation.",
         input: [...history, { role: "user", content: userText }],
         max_output_tokens: 1200,
@@ -39,13 +40,29 @@ export async function sendAIMessage(req, res) {
         store: false,
       }),
     });
-    const result = await response.json();
+    const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      console.error("OpenAI Responses API error:", result.error?.message || response.status);
-      return res.status(502).json({ message: "Codex AI could not reply right now" });
+      const providerMessage = result.error?.message || `OpenAI returned HTTP ${response.status}`;
+      const providerCode = result.error?.code || result.error?.type;
+      console.error("OpenAI Responses API error:", {
+        status: response.status,
+        code: providerCode,
+        requestId: response.headers.get("x-request-id"),
+        model,
+        message: providerMessage,
+      });
+      return res.status(502).json({
+        message: `Codex could not reply: ${providerMessage}`,
+        code: providerCode,
+        upstreamStatus: response.status,
+      });
     }
     const answer = result.output_text || result.output?.flatMap((item) => item.content || []).find((item) => item.type === "output_text")?.text;
-    if (!answer) return res.status(502).json({ message: "Codex AI returned an empty response" });
+    if (!answer) {
+      const reason = result.incomplete_details?.reason || result.status || "unknown";
+      console.error("OpenAI Responses API returned no text:", { model, status: result.status, reason, id: result.id });
+      return res.status(502).json({ message: `Codex returned no text (response status: ${reason})` });
+    }
 
     const messages = [
       { role: "user", content: userText, createdAt: new Date() },
