@@ -11,6 +11,9 @@ import { WorkspaceRail } from "../components/chat/WorkspaceRail";
 import { CountdownPanel } from "../components/chat/CountdownPanel";
 import { CallHistoryPanel } from "../components/chat/CallHistoryPanel";
 import { PostsPanel } from "../components/chat/PostsPanel";
+import { GroupWorkspace } from "../components/chat/GroupWorkspace";
+import { CodexChatPanel } from "../components/chat/CodexChatPanel";
+import { QuotesPanel } from "../components/chat/QuotesPanel";
 
 function ChatPage() {
   const { frameStyle } = useWallpaper();
@@ -70,10 +73,13 @@ function ChatPage() {
             </div>
           </>
         ) : (
-          <main className="flex-1 overflow-y-auto">
+          <main className="min-h-0 flex-1 overflow-y-auto">
             {workspaceSection === "countdowns" ? <CountdownPanel /> : null}
             {workspaceSection === "calls" ? <CallHistoryPanel /> : null}
             {workspaceSection === "posts" ? <PostsPanel /> : null}
+            {workspaceSection === "groups" ? <GroupWorkspace /> : null}
+            {workspaceSection === "codex" ? <CodexChatPanel /> : null}
+            {workspaceSection === "quotes" ? <QuotesPanel /> : null}
           </main>
         )}
       </div>

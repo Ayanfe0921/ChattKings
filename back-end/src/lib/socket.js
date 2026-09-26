@@ -2,6 +2,7 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import Call from "../models/call.model.js";
+import Group from "../models/group.model.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -24,6 +25,16 @@ io.on("connection", (socket) => {
     sockets.add(socket.id);
     userSocketMap.set(userId, sockets);
   }
+
+  socket.on("group:join", async ({ groupId } = {}) => {
+    if (!userId || !groupId) return;
+    const group = await Group.findOne({ _id: groupId, members: userId }).select("_id").lean();
+    if (group) socket.join(`group:${groupId}`);
+  });
+
+  socket.on("group:leave", ({ groupId } = {}) => {
+    if (groupId) socket.leave(`group:${groupId}`);
+  });
 
   // io.emit() sends event to everyone - broadcast
   io.emit("getOnlineUsers", [...userSocketMap.keys()]);

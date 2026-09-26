@@ -21,6 +21,7 @@ export const useChatStore = create(
       sidebarTab: "chats",
       workspaceSection: "chat",
       composerText: "",
+      replyingTo: null,
       isSoundEnabled: true,
       isSendingMedia: false,
 
@@ -144,6 +145,7 @@ export const useChatStore = create(
                   (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
                 ),
             composerText: "",
+            replyingTo: null,
           }));
           get().getConversations();
           return true;
@@ -152,6 +154,26 @@ export const useChatStore = create(
             error.response?.data?.message || "Failed to send message",
           );
           return false;
+        }
+      },
+
+      setReplyingTo: (replyingTo) => set({ replyingTo }),
+
+      sendStickerMessage: async ({ conversationId, sticker }) => {
+        if (!conversationId || !sticker) return false;
+        return get().sendMessage({ sticker, replyToId: get().replyingTo?._id || get().replyingTo?.id });
+      },
+
+      toggleMessageReaction: async (messageId, emoji) => {
+        try {
+          const response = await axiosInstance.patch(`/messages/${messageId}/reaction`, { emoji });
+          set((state) => ({
+            messages: state.messages.map((message) =>
+              String(message._id) === String(messageId) ? response.data : message,
+            ),
+          }));
+        } catch (error) {
+          toast.error(error.response?.data?.message || "Could not react to message");
         }
       },
 
@@ -222,6 +244,15 @@ export const useChatStore = create(
               : [...state.messages, notice],
           }));
         });
+
+        socket.off("messageUpdated");
+        socket.on("messageUpdated", (updatedMessage) => {
+          set((state) => ({
+            messages: state.messages.map((message) =>
+              String(message._id) === String(updatedMessage._id) ? updatedMessage : message,
+            ),
+          }));
+        });
       },
 
       unsubscribeFromMessages: () => {
@@ -229,6 +260,7 @@ export const useChatStore = create(
         socket?.off("newMessage");
         socket?.off("messagesRead");
         socket?.off("streakNotice");
+        socket?.off("messageUpdated");
       },
 
       setSelectedUser: (selectedUser) => set({ selectedUser }),
@@ -260,7 +292,10 @@ export const useChatStore = create(
         const messageText = get().composerText.trim();
         if (!conversationId || !messageText) return false;
 
-        return get().sendMessage({ text: messageText });
+        return get().sendMessage({
+          text: messageText,
+          replyToId: get().replyingTo?._id || get().replyingTo?.id,
+        });
       },
 
       sendMediaMessage: async ({ conversationId, file }) => {
@@ -268,6 +303,8 @@ export const useChatStore = create(
 
         const formData = new FormData();
         formData.append("media", file);
+        const replyToId = get().replyingTo?._id || get().replyingTo?.id;
+        if (replyToId) formData.append("replyToId", replyToId);
 
         set({ isSendingMedia: true });
         try {

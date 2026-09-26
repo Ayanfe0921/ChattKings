@@ -1,5 +1,8 @@
 import {
   ClapperboardIcon,
+  BotIcon,
+  UsersRoundIcon,
+  QuoteIcon,
   MessageCircleIcon,
   PhoneIcon,
   TimerIcon,
@@ -11,6 +14,9 @@ const sections = [
   { id: "countdowns", label: "Countdowns", Icon: TimerIcon },
   { id: "calls", label: "Call history", Icon: PhoneIcon },
   { id: "posts", label: "Posts", Icon: ClapperboardIcon },
+  { id: "groups", label: "Groups", Icon: UsersRoundIcon },
+  { id: "codex", label: "Codex AI", Icon: BotIcon },
+  { id: "quotes", label: "Quotes", Icon: QuoteIcon },
 ];
 
 export function WorkspaceRail() {

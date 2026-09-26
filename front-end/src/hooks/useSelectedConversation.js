@@ -21,12 +21,18 @@ export function getInitials(name) {
 function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
   const mappedMessages = messages.map((message) => ({
     id: message._id,
-    role: String(message.senderId) === String(authUser?._id) ? "me" : "them",
+    role: String(message.senderId?._id || message.senderId) === String(authUser?._id) ? "me" : "them",
     text: message.text || "",
     time: formatMessageTime(message.createdAt),
     imageUrl: message.image,
     videoUrl: message.video,
     kind: message.kind || "message",
+    sticker: message.sticker || "",
+    replyTo: message.replyTo || null,
+    reactions: (message.reactions || []).map((reaction) => ({
+      userId: reaction.userId?._id || reaction.userId,
+      emoji: reaction.emoji,
+    })),
   }));
 
   return {

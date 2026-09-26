@@ -144,6 +144,7 @@ export async function getConversationsForSidebar(req, res) {
       // 1. Keep only the messages I sent or received.
       {
         $match: {
+          groupId: null,
           $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }],
         },
       },
@@ -165,7 +166,7 @@ export async function getConversationsForSidebar(req, res) {
             $first: {
               $ifNull: [
                 "$text",
-                { $cond: [{ $ne: ["$image", null] }, "Photo", { $cond: [{ $ne: ["$video", null] }, "Video", "Message"] }] },
+                { $cond: [{ $ne: ["$image", null] }, "Photo", { $cond: [{ $ne: ["$video", null] }, "Video", { $cond: [{ $ne: ["$sticker", null] }, "Sticker", "Message"] }] }] },
               ],
             },
           },
@@ -273,6 +274,7 @@ export async function getStreaks(req, res) {
 export async function sendMessage(req, res) {
   try {
     const { text } = req.body;
+    const { replyToId, sticker } = req.body;
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
 
@@ -299,12 +301,37 @@ export async function sendMessage(req, res) {
       else imageUrl = url;
     }
 
+    let replyTo;
+    if (replyToId) {
+      const repliedMessage = await Message.findOne({
+        _id: replyToId,
+        groupId: null,
+        $or: [
+          { senderId, receiverId },
+          { senderId: receiverId, receiverId: senderId },
+        ],
+      }).populate("senderId", "fullName");
+      if (!repliedMessage) return res.status(400).json({ message: "That message cannot be replied to" });
+      replyTo = {
+        messageId: repliedMessage._id,
+        senderId: repliedMessage.senderId._id,
+        senderName: repliedMessage.senderId.fullName,
+        text: repliedMessage.text || "",
+        mediaType: repliedMessage.image ? "image" : repliedMessage.video ? "video" : repliedMessage.sticker ? "sticker" : "text",
+      };
+    }
+    if (!text?.trim() && !imageUrl && !videoUrl && !sticker) {
+      return res.status(400).json({ message: "Write a message or choose a sticker" });
+    }
+
     const newMessage = new Message({
       senderId,
       receiverId,
-      text,
+      text: text?.trim(),
       image: imageUrl,
       video: videoUrl,
+      sticker,
+      replyTo,
     });
 
     await newMessage.save();
@@ -318,5 +345,48 @@ export async function sendMessage(req, res) {
   } catch (error) {
     console.error("Error in sendMessage:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function toggleMessageReaction(req, res) {
+  try {
+    const { emoji } = req.body;
+    if (typeof emoji !== "string" || !emoji.trim() || [...emoji].length > 8) {
+      return res.status(400).json({ message: "Choose a valid emoji" });
+    }
+    const message = await Message.findById(req.params.id);
+    if (!message) return res.status(404).json({ message: "Message not found" });
+
+    if (message.groupId) {
+      const { default: Group } = await import("../models/group.model.js");
+      const member = await Group.exists({ _id: message.groupId, members: req.user._id });
+      if (!member) return res.status(403).json({ message: "You are not a member of this group" });
+    } else if (
+      String(message.senderId) !== String(req.user._id) &&
+      String(message.receiverId) !== String(req.user._id)
+    ) {
+      return res.status(403).json({ message: "You cannot react to this message" });
+    }
+
+    const userId = String(req.user._id);
+    const existing = message.reactions.find((reaction) => String(reaction.userId) === userId);
+    if (existing?.emoji === emoji) {
+      message.reactions = message.reactions.filter((reaction) => String(reaction.userId) !== userId);
+    } else if (existing) {
+      existing.emoji = emoji;
+    } else {
+      message.reactions.push({ userId: req.user._id, emoji });
+    }
+    await message.save();
+    const updated = await Message.findById(message._id).populate("senderId", "fullName profilePic");
+    if (message.groupId) io.to(`group:${message.groupId}`).emit("messageUpdated", updated);
+    else {
+      io.to(`user:${message.senderId}`).emit("messageUpdated", updated);
+      io.to(`user:${message.receiverId}`).emit("messageUpdated", updated);
+    }
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("Error reacting to message:", error);
+    res.status(500).json({ message: "Could not update reaction" });
   }
 }

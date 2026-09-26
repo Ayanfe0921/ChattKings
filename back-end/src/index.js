@@ -15,6 +15,9 @@ import countdownRoutes from "./routs/countdown.routes.js";
 import countdownReminderJob from "./lib/countdownReminders.js";
 import callRoutes from "./routs/call.routes.js";
 import postRoutes from "./routs/post.routes.js";
+import groupRoutes from "./routs/group.routes.js";
+import aiChatRoutes from "./routs/aiChat.routes.js";
+import quoteRoutes from "./routs/quote.routes.js";
 import { app, server } from "./lib/socket.js";
 
 const PORT = process.env.PORT || 3001;
@@ -42,6 +45,9 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/countdowns", countdownRoutes);
 app.use("/api/calls", callRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/ai-chat", aiChatRoutes);
+app.use("/api/quotes", quoteRoutes);
 
 // Serve the built frontend
 app.use(express.static(frontendDir));

@@ -6,6 +6,7 @@ import {
   getUsersForSidebar,
   markMessagesRead,
   sendMessage,
+  toggleMessageReaction,
 } from "../controllers/message.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
@@ -18,6 +19,7 @@ router.get("/users", getUsersForSidebar);
 router.get("/conversations", getConversationsForSidebar);
 router.get("/streaks", getStreaks);
 router.patch("/read/:id", markMessagesRead);
+router.patch("/:id/reaction", toggleMessageReaction);
 router.get("/:id", getMessages);
 router.post("/send/:id", upload.single("media"), sendMessage);
 

@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlusIcon, LoaderIcon, Trash2Icon } from "lucide-react";
+import { ImagePlusIcon, LoaderIcon, MessageCircleIcon, Trash2Icon } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../../lib/axios";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useChatStore } from "../../store/useChatStore";
 
 export function PostsPanel() {
   const authUser = useAuthStore((state) => state.authUser);
   const socket = useAuthStore((state) => state.socket);
+  const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
+  const setWorkspaceSection = useChatStore((state) => state.setWorkspaceSection);
+  const setComposerText = useChatStore((state) => state.setComposerText);
   const fileInput = useRef(null);
   const [posts, setPosts] = useState([]);
   const [file, setFile] = useState(null);
@@ -80,7 +84,7 @@ export function PostsPanel() {
   return (
     <section className="mx-auto w-full max-w-3xl p-4 sm:p-6" aria-label="Posts">
       <h1 className="text-xl font-semibold">Posts</h1>
-      <p className="mt-1 text-sm text-muted">Photos and videos disappear after 24 hours.</p>
+      <p className="mt-1 text-sm text-muted">Photos, videos, and quotes disappear after 24 hours.</p>
 
       <form onSubmit={submitPost} className="mt-5 rounded-2xl border border-border bg-background p-3 sm:p-4">
         <div className="flex items-start gap-3">
@@ -142,8 +146,23 @@ export function PostsPanel() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{post.userId?.fullName || "Chat user"}</p>
-                <time className="text-[10px] text-muted">{new Date(post.createdAt).toLocaleString()}</time>
+              <time className="text-[10px] text-muted">{new Date(post.createdAt).toLocaleString()}</time>
               </div>
+              {String(post.userId?._id) !== String(authUser?._id) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveConversationId(post.userId._id);
+                    setComposerText(post.caption ? `About your post: “${post.caption}” — ` : "About your photo/video post — ");
+                    setWorkspaceSection("chat");
+                  }}
+                  className="grid size-9 place-items-center rounded-lg text-accent hover:bg-accent/10"
+                  aria-label={`Reply to ${post.userId?.fullName || "user"}'s post in chat`}
+                  title="Reply in chat"
+                >
+                  <MessageCircleIcon className="size-5" />
+                </button>
+              ) : null}
               {String(post.userId?._id) === String(authUser?._id) ? (
                 <button
                   type="button"
@@ -155,7 +174,12 @@ export function PostsPanel() {
                 </button>
               ) : null}
             </header>
-            {post.mediaType === "video" ? (
+            {post.mediaType === "quote" ? (
+              <blockquote className="bg-accent/5 px-6 py-10 text-center sm:px-12">
+                <p className="text-2xl font-semibold leading-relaxed text-foreground">“{post.quoteText}”</p>
+                {post.quoteAuthor ? <cite className="mt-4 block text-sm not-italic text-muted">— {post.quoteAuthor}</cite> : null}
+              </blockquote>
+            ) : post.mediaType === "video" ? (
               <video src={post.mediaUrl} controls playsInline className="max-h-[65vh] w-full bg-black object-contain" />
             ) : (
               <img src={post.mediaUrl} alt={post.caption || "Photo post"} className="max-h-[65vh] w-full bg-black object-contain" />

@@ -51,6 +51,8 @@ export async function createPost(req, res) {
   }
 }
 
+export { createQuotePost } from "./quote.controller.js";
+
 export async function deletePost(req, res) {
   try {
     const post = await Post.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
