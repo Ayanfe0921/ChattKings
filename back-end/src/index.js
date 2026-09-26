@@ -13,6 +13,8 @@ import authRoutes from "./routs/auth.routes.js";
 import messageRoutes from "./routs/message.routes.js";
 import countdownRoutes from "./routs/countdown.routes.js";
 import countdownReminderJob from "./lib/countdownReminders.js";
+import callRoutes from "./routs/call.routes.js";
+import postRoutes from "./routs/post.routes.js";
 import { app, server } from "./lib/socket.js";
 
 const PORT = process.env.PORT || 3001;
@@ -38,6 +40,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/countdowns", countdownRoutes);
+app.use("/api/calls", callRoutes);
+app.use("/api/posts", postRoutes);
 
 // Serve the built frontend
 app.use(express.static(frontendDir));

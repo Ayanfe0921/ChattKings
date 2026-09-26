@@ -19,6 +19,7 @@ export const useChatStore = create(
       activeConversationId: null,
       searchQuery: "",
       sidebarTab: "chats",
+      workspaceSection: "chat",
       composerText: "",
       isSoundEnabled: true,
       isSendingMedia: false,
@@ -251,6 +252,7 @@ export const useChatStore = create(
 
       setSearchQuery: (searchQuery) => set({ searchQuery }),
       setSidebarTab: (sidebarTab) => set({ sidebarTab }),
+      setWorkspaceSection: (workspaceSection) => set({ workspaceSection }),
       setComposerText: (composerText) => set({ composerText }),
       setSoundEnabled: (isSoundEnabled) => set({ isSoundEnabled }),
 

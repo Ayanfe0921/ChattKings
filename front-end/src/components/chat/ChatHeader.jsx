@@ -1,5 +1,6 @@
 import { Avatar, Button } from "@heroui/react";
-import { ChevronLeftIcon, Volume2Icon, VolumeXIcon, XIcon } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeftIcon, PhoneIcon, Volume2Icon, VolumeXIcon, XIcon } from "lucide-react";
 import { AppLogo } from "../AppLogo";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
 
@@ -11,6 +12,46 @@ import { WallpaperPicker } from "../WallpaperPicker";
 import { useChatStore } from "../../store/useChatStore";
 import { useSelectedConversation } from "../../hooks/useSelectedConversation";
 import { StreakIndicator } from "./StreakIndicator";
+import { useCallStore } from "../../store/useCallStore";
+
+function CallAction({ peer }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const startCall = useCallStore((state) => state.startCall);
+
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        isIconOnly
+        aria-label="Start a call"
+        aria-expanded={isOpen}
+        onPress={() => setIsOpen((open) => !open)}
+      >
+        <PhoneIcon className="size-5" strokeWidth={2} aria-hidden />
+      </Button>
+      {isOpen ? (
+        <div className="absolute right-0 top-full z-30 mt-2 w-40 rounded-xl border border-border bg-background p-1.5 shadow-xl">
+          {["voice", "video"].map((callType) => (
+            <button
+              key={callType}
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                if (!peer) return;
+                startCall(peer, callType);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-surface"
+            >
+              {callType === "video" ? "Video call" : "Voice call"}
+            </button>
+          ))}
+          {!peer ? <p className="px-3 pb-2 text-[10px] text-muted">Select a chat first</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function ChatHeader() {
   const isSoundEnabled = useChatStore((state) => state.isSoundEnabled);
@@ -80,6 +121,14 @@ export function ChatHeader() {
         </div>
 
         <ThemeToggle />
+
+        <CallAction
+          peer={
+            activeConversation
+              ? { _id: activeConversation.id, fullName: activeConversation.peer.name }
+              : null
+          }
+        />
 
         <Button
           variant="ghost"

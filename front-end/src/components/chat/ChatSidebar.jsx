@@ -6,9 +6,8 @@ import { APP_NAME, AppLogo } from "../AppLogo";
 import { UserButton } from "@clerk/react";
 
 import { SearchField, Tabs } from "@heroui/react";
-import { MessageSquareIcon, TimerIcon, UsersIcon } from "lucide-react";
+import { MessageSquareIcon, UsersIcon } from "lucide-react";
 import { ConversationRow } from "./ConversationRow";
-import { CountdownPanel } from "./CountdownPanel";
 import toast from "react-hot-toast";
 
 function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) {
@@ -148,10 +147,6 @@ function ChatSidebar() {
               <UsersIcon className="size-3.5 opacity-80" aria-hidden />
               Users
             </Tabs.Tab>
-            <Tabs.Tab id="countdowns" className="flex-1 justify-center gap-1.5">
-              <TimerIcon className="size-3.5 opacity-80" aria-hidden />
-              Countdown
-            </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
 
@@ -190,9 +185,6 @@ function ChatSidebar() {
           )}
         </Tabs.Panel>
 
-        <Tabs.Panel id="countdowns" className="flex-1 overflow-x-hidden overflow-y-auto outline-none">
-          <CountdownPanel />
-        </Tabs.Panel>
       </Tabs>
     </aside>
   );

@@ -16,13 +16,13 @@ function createFileName(originalName = "upload") {
  * @see https://imagekit.io/docs/api-reference/upload-file/upload-file
  */
 
-async function uploadChatMedia(file) {
+async function uploadChatMedia(file, folder = "/chat") {
   const fileName = createFileName(file.originalname);
 
   const result = await imagekit.files.upload({
     file: await toFile(file.buffer, fileName, { type: file.mimetype }),
     fileName,
-    folder: "/chat",
+    folder,
   });
 
   return result.url;
