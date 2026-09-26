@@ -58,7 +58,18 @@ export const useChatStore = create(
         set({ isMessagesLoading: true });
         try {
           const res = await axiosInstance.get(`/messages/${userId}`);
-          set({ messages: res.data });
+          // Ignore a slow response after the user has switched conversations.
+          if (String(get().activeConversationId) !== String(userId)) return;
+          // Preserve messages delivered by the socket while history was loading.
+          set((state) => {
+            const byId = new Map(res.data.map((message) => [String(message._id), message]));
+            state.messages.forEach((message) => byId.set(String(message._id), message));
+            return {
+              messages: [...byId.values()].sort(
+                (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+              ),
+            };
+          });
         } catch (error) {
           toast.error(
             error.response?.data?.message || "Failed to load messages",
@@ -69,7 +80,7 @@ export const useChatStore = create(
       },
 
       sendMessage: async (messageData) => {
-        const { selectedUser, messages } = get();
+        const { selectedUser } = get();
         if (!selectedUser) return false;
 
         try {
@@ -77,7 +88,14 @@ export const useChatStore = create(
             `/messages/send/${selectedUser._id}`,
             messageData,
           );
-          set({ messages: [...messages, res.data], composerText: "" });
+          set((state) => ({
+            messages: state.messages.some(
+              (message) => String(message._id) === String(res.data._id),
+            )
+              ? state.messages
+              : [...state.messages, res.data],
+            composerText: "",
+          }));
           get().getConversations();
           return true;
         } catch (error) {
@@ -99,7 +117,15 @@ export const useChatStore = create(
           // if im not the receiver don't do anything just return
           if (String(newMessage.senderId) !== String(userId)) return;
 
-          set({ messages: [...get().messages, newMessage] });
+          set((state) => ({
+            messages: state.messages.some(
+              (message) => String(message._id) === String(newMessage._id),
+            )
+              ? state.messages
+              : [...state.messages, newMessage].sort(
+                  (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+                ),
+          }));
 
           get().getConversations();
         });
@@ -121,7 +147,11 @@ export const useChatStore = create(
               (user) => user._id === activeConversationId,
             ) ||
             null,
-          messages: activeConversationId ? state.messages : [],
+          messages:
+            activeConversationId &&
+            String(state.activeConversationId) === String(activeConversationId)
+              ? state.messages
+              : [],
         }));
       },
 

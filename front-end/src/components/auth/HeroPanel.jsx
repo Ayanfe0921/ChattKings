@@ -9,10 +9,9 @@ const heroPanelClassName = [
 ].join(" ");
 
 const heroImageClassName = [
-    "h-auto max-h-[min(44vh,380px)] w-[min(92%,19rem)]",
-    "animate-[auth-float-y_4.5s_ease-in-out_infinite]",
+    "h-auto max-h-[min(44vh,380px)] w-full",
     "object-contain object-center select-none motion-reduce:animate-none",
-    "sm:w-[min(88%,21rem)] md:max-h-[min(52vh,440px)] md:w-[min(90%,22rem)]",
+    "md:max-h-[min(52vh,440px)]",
 ].join(" ");
 
 export function HeroPanel() {
@@ -34,15 +33,60 @@ export function HeroPanel() {
                 </div>
 
                 <div className="flex flex-1 items-center justify-center py-6 md:py-4">
-                    <img
-                        src="/auth.png"
-                        alt=""
-                        width={640}
-                        height={640}
-                        className={heroImageClassName}
-                        draggable={false}
-                        decoding="async"
-                    />
+                    <div className="relative w-[min(92%,19rem)] sm:w-[min(88%,21rem)] md:w-[min(90%,22rem)] motion-safe:animate-[auth-float-y_4.5s_ease-in-out_infinite] motion-reduce:animate-none">
+                        <img
+                            src="/auth.png"
+                            alt=""
+                            width={640}
+                            height={640}
+                            className={heroImageClassName}
+                            draggable={false}
+                            decoding="async"
+                        />
+                        <svg
+                            aria-hidden="true"
+                            viewBox="0 0 200 240"
+                            preserveAspectRatio="none"
+                            className="pointer-events-none absolute left-[29%] top-[84.5%] z-1 h-[14%] w-[42%] overflow-visible mix-blend-screen"
+                        >
+                            <defs>
+                                <linearGradient id="rocket-flame" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0" stopColor="#fffbd1" />
+                                    <stop offset="0.22" stopColor="#ffe45c" />
+                                    <stop offset="0.58" stopColor="#ff8a18" />
+                                    <stop offset="1" stopColor="#ff3b18" stopOpacity="0.08" />
+                                </linearGradient>
+                                <radialGradient id="rocket-flame-glow">
+                                    <stop stopColor="#fff5a1" stopOpacity="0.9" />
+                                    <stop offset="0.4" stopColor="#ff7a1a" stopOpacity="0.65" />
+                                    <stop offset="1" stopColor="#ff3b18" stopOpacity="0" />
+                                </radialGradient>
+                                <filter id="rocket-flame-blur" x="-100%" y="-40%" width="300%" height="200%">
+                                    <feGaussianBlur stdDeviation="9" />
+                                </filter>
+                            </defs>
+                            <ellipse
+                                cx="100"
+                                cy="105"
+                                rx="56"
+                                ry="100"
+                                fill="url(#rocket-flame-glow)"
+                                filter="url(#rocket-flame-blur)"
+                                className="origin-top animate-[auth-flame-glow_180ms_ease-in-out_infinite_alternate] motion-reduce:animate-none"
+                            />
+                            <path
+                                d="M72 0 C77 34 53 48 68 91 C76 114 89 133 96 194 C104 146 125 119 133 91 C146 48 121 29 128 0 C115 26 107 39 100 60 C93 38 83 24 72 0Z"
+                                fill="url(#rocket-flame)"
+                                className="origin-top animate-[auth-flame_220ms_ease-in-out_infinite_alternate] motion-reduce:animate-none"
+                            />
+                            <path
+                                d="M88 0 C94 25 79 42 91 73 C96 88 99 106 101 133 C108 101 119 81 116 60 C114 39 104 21 108 0 C101 18 98 25 96 37 C94 22 92 11 88 0Z"
+                                fill="#fff8c9"
+                                opacity="0.94"
+                                className="origin-top animate-[auth-flame-core_150ms_ease-in-out_infinite_alternate] motion-reduce:animate-none"
+                            />
+                        </svg>
+                    </div>
                 </div>
 
                 <p className="text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-[#636366] md:text-left">

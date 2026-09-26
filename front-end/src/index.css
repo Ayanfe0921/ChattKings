@@ -54,3 +54,36 @@
     transform: translateX(100%);
   }
 }
+
+@keyframes auth-flame {
+  from {
+    transform: scaleY(0.86) scaleX(0.94) skewX(-2deg);
+    opacity: 0.84;
+  }
+  to {
+    transform: scaleY(1.08) scaleX(1.04) skewX(2deg);
+    opacity: 1;
+  }
+}
+
+@keyframes auth-flame-core {
+  from {
+    transform: scaleY(0.78) translateX(-2px);
+    opacity: 0.82;
+  }
+  to {
+    transform: scaleY(1.12) translateX(2px);
+    opacity: 1;
+  }
+}
+
+@keyframes auth-flame-glow {
+  from {
+    transform: scale(0.88);
+    opacity: 0.66;
+  }
+  to {
+    transform: scale(1.1);
+    opacity: 0.95;
+  }
+}
