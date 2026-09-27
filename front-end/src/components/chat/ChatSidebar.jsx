@@ -1,16 +1,15 @@
 import { getInitials, useSelectedConversation } from "../../hooks/useSelectedConversation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
 import { APP_NAME, AppLogo } from "../AppLogo";
 
 import { SearchField, Tabs } from "@heroui/react";
-import { MessageSquareIcon } from "lucide-react";
+import { MessageSquareIcon, UsersIcon } from "lucide-react";
 import { ConversationRow } from "./ConversationRow";
 import toast from "react-hot-toast";
 import { UserButton } from "@clerk/react";
 import { axiosInstance } from "../../lib/axios";
-import { useState } from "react";
 
 function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) {
   return {
@@ -36,7 +35,9 @@ function mapUserForList(user, onlineUsers, streak, conversation, currentUserId) 
 }
 
 function ChatSidebar() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const conversations = useChatStore((state) => state.conversations);
+  const users = useChatStore((state) => state.users);
   const streaks = useChatStore((state) => state.streaks);
 
   const searchQuery = useChatStore((state) => state.searchQuery);
@@ -56,6 +57,16 @@ function ChatSidebar() {
   const { activeConversationId, isLargeScreen } = useSelectedConversation();
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  useEffect(() => {
+    const updateNetwork = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateNetwork);
+    window.addEventListener("offline", updateNetwork);
+    return () => {
+      window.removeEventListener("online", updateNetwork);
+      window.removeEventListener("offline", updateNetwork);
+    };
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -78,6 +89,16 @@ function ChatSidebar() {
         conversation.peer.name.toLowerCase().includes(normalizedSearchQuery) || conversation.peer.tag.toLowerCase().includes(normalizedSearchQuery),
       )
     : conversationUsers;
+  const userRows = users.map((user) => mapUserForList(
+    user,
+    onlineUsers,
+    streaks[String(user._id)],
+    conversations.find((conversation) => String(conversation._id) === String(user._id)),
+    authUser?._id,
+  ));
+  const filteredUsers = normalizedSearchQuery
+    ? userRows.filter((user) => user.name.toLowerCase().includes(normalizedSearchQuery))
+    : userRows;
 
   return (
     <aside
@@ -91,10 +112,10 @@ function ChatSidebar() {
           <p className="flex-1 truncate text-lg font-bold tracking-tight sm:text-[22px]">
             {APP_NAME}
           </p>
-          {navigator.onLine ? <UserButton appearance={{ elements: { avatarBox: "size-8" } }} /> : (
+          {isOnline ? <UserButton appearance={{ elements: { avatarBox: "size-8" } }} /> : (
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface text-[10px] text-muted" title="Account management requires an internet connection" aria-label="Account management unavailable offline">{authUser?.fullName?.slice(0, 1) || "U"}</span>
           )}
-          <button type="button" disabled={!navigator.onLine || savingPresence} aria-pressed={authUser?.showOnlineStatus !== false} title={!navigator.onLine ? "Account settings require an internet connection" : authUser?.showOnlineStatus === false ? "Turn online visibility on" : "Turn online visibility off"} onClick={async () => { if (!navigator.onLine) return; const enabled = authUser?.showOnlineStatus === false; setSavingPresence(true); try { const res = await axiosInstance.patch("/messages/settings/online-status", { enabled }); setAuthUser((state) => ({ authUser: { ...state.authUser, ...res.data } })); } catch (error) { toast.error(error.response?.data?.message || "Could not update online visibility"); } finally { setSavingPresence(false); } }} className={`grid size-8 shrink-0 place-items-center rounded-full border text-[10px] font-semibold disabled:opacity-50 ${authUser?.showOnlineStatus === false ? "border-border text-muted" : "border-success bg-success/10 text-success"}`} aria-label="Toggle online visibility">{authUser?.showOnlineStatus === false ? "OFF" : "ON"}</button>
+          <button type="button" disabled={!isOnline || savingPresence} aria-pressed={authUser?.showOnlineStatus !== false} title={!isOnline ? "Account settings require an internet connection" : authUser?.showOnlineStatus === false ? "Turn online visibility on" : "Turn online visibility off"} onClick={async () => { if (!navigator.onLine) return; const enabled = authUser?.showOnlineStatus === false; setSavingPresence(true); try { const res = await axiosInstance.patch("/messages/settings/online-status", { enabled }); setAuthUser((state) => ({ authUser: { ...state.authUser, ...res.data } })); } catch (error) { toast.error(error.response?.data?.message || "Could not update online visibility"); } finally { setSavingPresence(false); } }} className={`grid size-8 shrink-0 place-items-center rounded-full border text-[10px] font-semibold disabled:opacity-50 ${authUser?.showOnlineStatus === false ? "border-border text-muted" : "border-success bg-success/10 text-success"}`} aria-label="Toggle online visibility">{authUser?.showOnlineStatus === false ? "OFF" : "ON"}</button>
         </div>
       </div>
 
@@ -126,6 +147,10 @@ function ChatSidebar() {
               <MessageSquareIcon className="size-3.5 opacity-80" aria-hidden />
               Chats
             </Tabs.Tab>
+            <Tabs.Tab id="users" className="flex-1 justify-center gap-1.5">
+              <UsersIcon className="size-3.5 opacity-80" aria-hidden />
+              Users
+            </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
 
@@ -147,6 +172,21 @@ function ChatSidebar() {
               />
             ))
           )}
+        </Tabs.Panel>
+
+        <Tabs.Panel id="users" className="flex-1 overflow-x-hidden overflow-y-auto outline-none">
+          {!isOnline ? (
+            <p className="px-4 py-8 text-center text-sm text-muted">Go online to see or search users.</p>
+          ) : filteredUsers.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted">No users match your search.</p>
+          ) : filteredUsers.map((user) => (
+            <ConversationRow
+              key={user.conversationId}
+              user={user}
+              selected={user.conversationId === activeConversationId}
+              onSelect={() => setActiveConversationId(user.conversationId)}
+            />
+          ))}
         </Tabs.Panel>
 
       </Tabs>
