@@ -22,12 +22,28 @@ export function PostsPanel() {
   const [isPosting, setIsPosting] = useState(false);
 
   useEffect(() => {
+    try { const cached = JSON.parse(localStorage.getItem("chattkings-seen-posts") || "[]"); if (cached.length) setPosts(cached); } catch {}
+    if (!navigator.onLine) { setIsLoading(false); return; }
     axiosInstance
       .get("/posts")
       .then((res) => setPosts(res.data))
       .catch((error) => toast.error(error.response?.data?.message || "Could not load posts"))
       .finally(() => setIsLoading(false));
   }, []);
+
+  const cacheViewedPost = (element, post) => {
+    if (!element || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      let cached = [];
+      try { cached = JSON.parse(localStorage.getItem("chattkings-seen-posts") || "[]"); } catch {}
+      if (!cached.some((item) => String(item._id) === String(post._id))) {
+        try { localStorage.setItem("chattkings-seen-posts", JSON.stringify([post, ...cached].slice(0, 50))); } catch {}
+      }
+      observer.disconnect();
+    }, { threshold: 0.35 });
+    observer.observe(element);
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -113,7 +129,7 @@ export function PostsPanel() {
       <h1 className="text-xl font-semibold">Posts</h1>
       <p className="mt-1 text-sm text-muted">Photos, videos, and quotes disappear after 24 hours.</p>
 
-      <form onSubmit={submitPost} className="mt-5 rounded-2xl border border-border bg-background p-3 sm:p-4">
+      {navigator.onLine ? <form onSubmit={submitPost} className="mt-5 rounded-2xl border border-border bg-background p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="grid size-10 shrink-0 place-items-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
             {authUser?.fullName?.slice(0, 1).toUpperCase() || "Y"}
@@ -156,7 +172,7 @@ export function PostsPanel() {
             </div>
           </div>
         </div>
-      </form>
+      </form> : <p className="mt-5 rounded-xl bg-accent/5 p-3 text-sm text-muted">Offline mode shows posts you viewed earlier. Go online to load new posts.</p>}
 
       <div className="mt-5 space-y-4">
         {isLoading ? <p className="py-8 text-center text-sm text-muted">Loading posts…</p> : null}
@@ -166,7 +182,7 @@ export function PostsPanel() {
           </p>
         ) : null}
         {posts.map((post) => (
-          <article key={post._id} className="overflow-hidden rounded-2xl border border-border bg-background">
+          <article key={post._id} ref={(element) => cacheViewedPost(element, post)} className="overflow-hidden rounded-2xl border border-border bg-background">
             <header className="flex items-center gap-2 px-3 py-3 sm:px-4">
               <div className="grid size-9 shrink-0 place-items-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
                 {post.userId?.fullName?.slice(0, 1).toUpperCase() || "?"}
@@ -193,7 +209,7 @@ export function PostsPanel() {
                 <button type="button" aria-label={recordingPostId === String(post._id) ? "Stop and send voice reply" : "Record voice reply"} onClick={() => recordPostReply(post.userId._id, post)} className={`grid size-9 place-items-center rounded-full ${recordingPostId === String(post._id) ? "bg-accent text-accent-foreground" : "text-accent hover:bg-accent/10"}`}>{recordingPostId === String(post._id) ? <SquareIcon className="size-4" /> : <MicIcon className="size-4" />}</button>
                 </div>
               ) : null}
-              {String(post.userId?._id) === String(authUser?._id) ? (
+              {navigator.onLine && String(post.userId?._id) === String(authUser?._id) ? (
                 <button
                   type="button"
                   onClick={() => deletePost(post._id)}

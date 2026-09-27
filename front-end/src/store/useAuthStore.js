@@ -3,7 +3,7 @@ import { axiosInstance, SERVER_URL } from "../lib/axios";
 import { io } from "socket.io-client";
 
 export const useAuthStore = create((set, get) => ({
-  authUser: null,
+  authUser: (() => { try { return JSON.parse(localStorage.getItem("chattkings-cached-user") || "null"); } catch { return null; } })(),
   authError: null,
   isCheckingAuth: true,
   onlineUsers: [],
@@ -15,6 +15,7 @@ export const useAuthStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get("/auth/check", { timeout: 15000 });
       set({ authUser: res.data });
+      localStorage.setItem("chattkings-cached-user", JSON.stringify(res.data));
 
       get().connectSocket(res.data);
     } catch (error) {
@@ -40,6 +41,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   clearAuth: () => {
+    localStorage.removeItem("chattkings-cached-user");
     set({
       authUser: null,
       authError: null,

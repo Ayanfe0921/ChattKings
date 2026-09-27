@@ -14,6 +14,8 @@ import { PostsPanel } from "../components/chat/PostsPanel";
 import { GroupWorkspace } from "../components/chat/GroupWorkspace";
 import { CodexChatPanel } from "../components/chat/CodexChatPanel";
 import { QuotesPanel } from "../components/chat/QuotesPanel";
+import { QuizPanel } from "../components/chat/QuizPanel";
+import { QuickNotesPanel } from "../components/chat/QuickNotesPanel";
 
 function ChatPage() {
   const { frameStyle } = useWallpaper();
@@ -69,7 +71,7 @@ function ChatPage() {
             >
               <ChatHeader />
               <MessageList />
-              {activeConversation ? <ChatComposer /> : null}
+              {activeConversation && navigator.onLine ? <ChatComposer /> : null}
             </div>
           </>
         ) : (
@@ -80,6 +82,8 @@ function ChatPage() {
             {workspaceSection === "groups" ? <GroupWorkspace /> : null}
             {workspaceSection === "codex" ? <CodexChatPanel /> : null}
             {workspaceSection === "quotes" ? <QuotesPanel /> : null}
+            {workspaceSection === "quiz" ? <QuizPanel /> : null}
+            {workspaceSection === "notes" ? <QuickNotesPanel /> : null}
           </main>
         )}
       </div>

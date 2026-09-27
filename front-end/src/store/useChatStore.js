@@ -12,6 +12,7 @@ export const useChatStore = create(
       conversations: [],
       streaks: {},
       messages: [],
+      conversationMessages: {},
       selectedUser: null,
       isConversationsLoading: false,
       isUsersLoading: false,
@@ -72,7 +73,7 @@ export const useChatStore = create(
       },
 
       markMessagesRead: async (peerId) => {
-        if (!peerId) return;
+        if (!peerId || !navigator.onLine) return;
         set((state) => ({
           conversations: state.conversations.map((conversation) =>
             String(conversation._id) === String(peerId)
@@ -126,6 +127,11 @@ export const useChatStore = create(
 
       getMessages: async (userId) => {
         if (!userId) return;
+        const cachedMessages = get().conversationMessages[String(userId)];
+        if (!navigator.onLine) {
+          set({ messages: cachedMessages || [], isMessagesLoading: false });
+          return;
+        }
         set({ isMessagesLoading: true });
         try {
           const res = await axiosInstance.get(`/messages/${userId}`);
@@ -139,6 +145,7 @@ export const useChatStore = create(
               messages: [...byId.values()].sort(
                 (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
               ),
+              conversationMessages: { ...state.conversationMessages, [String(userId)]: [...byId.values()].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)) },
             };
           });
         } catch (error) {
@@ -307,6 +314,9 @@ export const useChatStore = create(
             String(state.activeConversationId) === String(activeConversationId)
               ? state.messages
               : [],
+          conversationMessages: state.activeConversationId
+            ? { ...state.conversationMessages, [String(state.activeConversationId)]: state.messages }
+            : state.conversationMessages,
         }));
       },
 
@@ -347,7 +357,17 @@ export const useChatStore = create(
     }),
     {
       name: "imessage-storage",
-      partialize: (state) => ({ isSoundEnabled: state.isSoundEnabled }),
+      partialize: (state) => ({
+        isSoundEnabled: state.isSoundEnabled,
+        // Keep the most recently synced conversations and histories available offline.
+        users: state.users,
+        conversations: state.conversations,
+        streaks: state.streaks,
+        messages: state.messages,
+        conversationMessages: state.conversationMessages,
+        workspaceSection: state.workspaceSection,
+        activeConversationId: state.activeConversationId,
+      }),
     },
   ),
 );

@@ -61,16 +61,19 @@ export function CountdownPanel() {
         params: { year: newYear.year, newYearAt: newYear.date.toISOString() },
       });
       setCountdowns(res.data.countdowns);
+      localStorage.setItem("chattkings-countdowns", JSON.stringify(res.data.countdowns));
       res.data.notifications.forEach((notice) => toast.success(notice.text));
     } catch (error) {
-      toast.error(error.response?.data?.message || "Could not load countdowns");
+      try { setCountdowns(JSON.parse(localStorage.getItem("chattkings-countdowns") || "[]")); } catch {}
+      if (navigator.onLine) toast.error(error.response?.data?.message || "Could not load countdowns");
     } finally {
       setIsLoading(false);
     }
   }, [newYear.date, newYear.year]);
 
   useEffect(() => {
-    loadCountdowns();
+    if (navigator.onLine) loadCountdowns();
+    else { try { setCountdowns(JSON.parse(localStorage.getItem("chattkings-countdowns") || "[]")); } catch {} setIsLoading(false); }
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [loadCountdowns]);
@@ -115,6 +118,7 @@ export function CountdownPanel() {
         </div>
         <button
           type="button"
+          disabled={!navigator.onLine}
           onClick={() => setIsAdding((value) => !value)}
           className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground"
           aria-label={isAdding ? "Close countdown form" : "Add countdown"}
@@ -172,7 +176,7 @@ export function CountdownPanel() {
                 : "bg-surface"
             }`}
           >
-            {!countdown.isDefault ? (
+            {navigator.onLine && !countdown.isDefault ? (
               <button
                 type="button"
                 onClick={() => handleDelete(countdown._id)}

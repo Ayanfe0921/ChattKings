@@ -27,6 +27,7 @@ function App() {
   const authError = useAuthStore((state) => state.authError);
 
   useEffect(() => {
+    if (!navigator.onLine) return;
     if (!isLoaded) return;
 
     if (isSignedIn) checkAuth();
@@ -34,7 +35,7 @@ function App() {
   }, [checkAuth, clearAuth, isLoaded, isSignedIn]);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !clerkUser) return;
+    if (!navigator.onLine || !isLoaded || !isSignedIn || !clerkUser) return;
     const profile = [clerkUser.id, clerkUser.firstName, clerkUser.lastName, clerkUser.imageUrl].join("|");
     if (clerkProfileSnapshot.current === null) {
       clerkProfileSnapshot.current = profile;
@@ -55,6 +56,11 @@ function App() {
     const timeoutId = window.setTimeout(() => setClerkLoadTimedOut(true), 15000);
     return () => window.clearTimeout(timeoutId);
   }, [isLoaded]);
+
+  // Clerk and the API cannot revalidate offline; keep the cached local workspace usable.
+  if (!navigator.onLine && useAuthStore.getState().authUser) {
+    return <ThemeProvider><WallpaperProvider><ChatPage /><Toaster /></WallpaperProvider></ThemeProvider>;
+  }
 
   if (!isLoaded) {
     if (clerkLoadTimedOut) {

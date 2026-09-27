@@ -1,6 +1,6 @@
 import { Avatar, Button } from "@heroui/react";
 import { useState } from "react";
-import { ChevronLeftIcon, PhoneIcon, Volume2Icon, VolumeXIcon, XIcon, SearchIcon, PlusIcon } from "lucide-react";
+import { ChevronLeftIcon, Volume2Icon, VolumeXIcon, XIcon, SearchIcon, PlusIcon } from "lucide-react";
 import { AppLogo } from "../AppLogo";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
 
@@ -13,44 +13,21 @@ import { useChatStore } from "../../store/useChatStore";
 import { useSelectedConversation } from "../../hooks/useSelectedConversation";
 import { StreakIndicator } from "./StreakIndicator";
 import { useCallStore } from "../../store/useCallStore";
+import { PhoneIcon } from "lucide-react";
 
 function CallAction({ peer }) {
   const [isOpen, setIsOpen] = useState(false);
   const startCall = useCallStore((state) => state.startCall);
+  const canCall = Boolean(navigator.onLine && peer?.isOnline);
 
-  return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        isIconOnly
-        aria-label="Start a call"
-        aria-expanded={isOpen}
-        onPress={() => setIsOpen((open) => !open)}
-      >
-        <PhoneIcon className="size-5" strokeWidth={2} aria-hidden />
-      </Button>
-      {isOpen ? (
-        <div className="absolute right-0 top-full z-30 mt-2 w-40 rounded-xl border border-border bg-background p-1.5 shadow-xl">
-          {["voice", "video"].map((callType) => (
-            <button
-              key={callType}
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                if (!peer) return;
-                startCall(peer, callType);
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-surface"
-            >
-              {callType === "video" ? "Video call" : "Voice call"}
-            </button>
-          ))}
-          {!peer ? <p className="px-3 pb-2 text-[10px] text-muted">Select a chat first</p> : null}
-        </div>
-      ) : null}
-    </div>
-  );
+  return <div className="relative">
+    <Button variant="ghost" size="sm" isIconOnly aria-label="Start a call" title={canCall ? "Start a call" : "Calling is available when you and this person are online"} isDisabled={!canCall} aria-expanded={isOpen} onPress={() => setIsOpen((open) => !open)}>
+      <PhoneIcon className="size-5" strokeWidth={2} aria-hidden />
+    </Button>
+    {isOpen && canCall ? <div className="absolute right-0 top-full z-30 mt-2 w-40 rounded-xl border border-border bg-background p-1.5 shadow-xl">
+      {["voice", "video"].map((callType) => <button key={callType} type="button" onClick={() => { setIsOpen(false); startCall({ _id: peer.id, fullName: peer.name, isOnline: peer.isOnline }, callType); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-surface">{callType === "video" ? "Video call" : "Voice call"}</button>)}
+    </div> : null}
+  </div>;
 }
 
 export function ChatHeader() {
@@ -133,13 +110,7 @@ export function ChatHeader() {
 
         <ThemeToggle />
 
-        <CallAction
-          peer={
-            activeConversation
-              ? { _id: activeConversation.id, fullName: activeConversation.peer.name }
-              : null
-          }
-        />
+        <CallAction peer={activeConversation ? { id: activeConversation.id, name: activeConversation.peer.name, isOnline: activeConversation.peer.isOnline } : null} />
 
         {activeConversation ? <Button variant="ghost" size="sm" isIconOnly aria-label="Search messages in this chat" aria-pressed={messageSearchOpen} onPress={() => { setMessageSearchOpen((open) => !open); setMessageSearchQuery(""); }}><SearchIcon className="size-5" /></Button> : null}
 

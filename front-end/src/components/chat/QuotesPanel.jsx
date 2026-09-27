@@ -19,16 +19,21 @@ export function QuotesPanel() {
     try {
       const response = await axiosInstance.get("/quotes/random");
       setQuote(response.data);
+      localStorage.setItem("chattkings-last-quote", JSON.stringify(response.data));
     } catch (error) {
-      toast.error(error.response?.data?.message || "Could not generate a quote");
+      const cached = localStorage.getItem("chattkings-last-quote");
+      if (!navigator.onLine && cached) setQuote(JSON.parse(cached));
+      else toast.error(!navigator.onLine ? "You’re offline. Go online to generate a new quote." : error.response?.data?.message || "Could not generate a quote");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    const cached = localStorage.getItem("chattkings-last-quote");
+    if (cached) { try { setQuote(JSON.parse(cached)); setLoading(false); } catch {} }
     loadQuote();
-    getConversations();
+    if (navigator.onLine) getConversations();
   }, [getConversations]);
 
   const postQuote = async () => {

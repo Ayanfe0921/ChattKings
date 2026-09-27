@@ -6,6 +6,8 @@ import {
   MessageCircleIcon,
   PhoneIcon,
   TimerIcon,
+  BrainIcon,
+  NotebookPenIcon,
 } from "lucide-react";
 import { useChatStore } from "../../store/useChatStore";
 
@@ -17,6 +19,8 @@ const sections = [
   { id: "groups", label: "Groups", Icon: UsersRoundIcon },
   { id: "codex", label: "Codex AI", Icon: BotIcon },
   { id: "quotes", label: "Quotes", Icon: QuoteIcon },
+  { id: "quiz", label: "Quiz app", Icon: BrainIcon },
+  { id: "notes", label: "Quick notes", Icon: NotebookPenIcon },
 ];
 
 export function WorkspaceRail() {

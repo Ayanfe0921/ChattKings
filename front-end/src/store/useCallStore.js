@@ -55,6 +55,10 @@ export const useCallStore = create((set, get) => ({
 
   startCall: async (peer, callType) => {
     const socket = useAuthStore.getState().socket;
+    if (!peer?.isOnline) {
+      toast.error("You can call this person when they are online");
+      return;
+    }
     if (!peer?._id || !socket?.connected) {
       toast.error("Connect to the chat server before calling");
       return;

@@ -5,6 +5,8 @@ import App from "./App.jsx";
 import { ClerkProvider } from "@clerk/react";
 import { BrowserRouter } from "react-router";
 
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 createRoot(document.getElementById("root")).render(

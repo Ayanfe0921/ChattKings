@@ -1,0 +1,11 @@
+import { useState } from "react";
+import { NotebookPenIcon, PlusIcon, Trash2Icon } from "lucide-react";
+
+function loadNotes() { try { return JSON.parse(localStorage.getItem("chattkings-quick-notes") || "[]"); } catch { return []; } }
+export function QuickNotesPanel() {
+  const [notes, setNotes] = useState(loadNotes);
+  const [draft, setDraft] = useState("");
+  const save = (items) => { setNotes(items); localStorage.setItem("chattkings-quick-notes", JSON.stringify(items)); };
+  const add = (event) => { event.preventDefault(); if (!draft.trim()) return; save([{ id: crypto.randomUUID(), text: draft.trim(), updatedAt: Date.now() }, ...notes]); setDraft(""); };
+  return <section className="mx-auto w-full max-w-3xl p-4 sm:p-8" aria-label="Quick notes"><header className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-accent/10 text-accent"><NotebookPenIcon /></span><div><h1 className="text-xl font-semibold">Quick notes</h1><p className="text-sm text-muted">Saved on this device and available offline.</p></div></header><form onSubmit={add} className="mt-6 rounded-2xl border border-border bg-background p-3"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={4000} rows={4} placeholder="Write a note…" className="w-full resize-y rounded-xl bg-surface p-3 text-sm outline-none focus:ring-1 focus:ring-accent"/><button className="mt-2 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"><PlusIcon className="size-4"/>Save note</button></form><div className="mt-5 space-y-3">{notes.map((note) => <article key={note.id} className="rounded-2xl border border-border bg-background p-4"><div className="flex items-start gap-3"><p className="min-w-0 flex-1 whitespace-pre-wrap text-sm">{note.text}</p><button type="button" onClick={() => save(notes.filter((item) => item.id !== note.id))} aria-label="Delete note" className="text-muted hover:text-danger"><Trash2Icon className="size-4"/></button></div><time className="mt-3 block text-xs text-muted">{new Date(note.updatedAt).toLocaleString()}</time></article>)}{!notes.length ? <p className="py-8 text-center text-sm text-muted">Your notes will appear here.</p> : null}</div></section>;
+}
