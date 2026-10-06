@@ -8,7 +8,7 @@ const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
 // Compress + size images for the bubble (q-auto works for images; f-auto picks WebP/AVIF).
 const IMAGE_TRANSFORM = "q-auto,w-640,f-auto";
 
-export function MessageBubble({ message, onReply, onReact, onDelete, onPin, currentUserId }) {
+export function MessageBubble({ message, onReply, onReact, onDelete, onPin, currentUserId, dataSaver = false }) {
   const [showReactions, setShowReactions] = useState(false);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const reactionTimeoutRef = useRef(null);
@@ -84,13 +84,14 @@ export function MessageBubble({ message, onReply, onReact, onDelete, onPin, curr
         {message.sticker ? <p className="py-1 text-center text-6xl leading-none" role="img" aria-label="Sticker">{message.sticker}</p> : null}
         {hasImage ? (
           <img
-            src={withTransform(message.imageUrl, IMAGE_TRANSFORM)}
+            src={withTransform(message.imageUrl, dataSaver ? "q-60,w-320,f-auto" : IMAGE_TRANSFORM)}
+            loading="lazy"
             alt=""
             className="mb-1.5 max-h-40 max-w-full rounded-lg object-cover sm:max-h-52 sm:rounded-xl"
           />
         ) : null}
-        {hasVideo ? <MessageVideo src={message.videoUrl} /> : null}
-        {message.audioUrl ? <audio controls preload="none" src={message.audioUrl} className="my-1 max-w-full" /> : null}
+        {hasVideo ? <MessageVideo src={message.videoUrl} dataSaver={dataSaver} /> : null}
+        {message.audioUrl ? <audio controls preload="none" src={message.audioUrl} aria-label={`Voice message from ${isOwnMessage ? "you" : "the other person"}`} className="my-1 max-w-full" /> : null}
         {message.text ? (
           <p className="whitespace-pre-wrap wrap-break-word">{message.text}</p>
         ) : null}

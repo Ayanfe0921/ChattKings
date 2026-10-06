@@ -2,11 +2,6 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { DEFAULT_THEME_PRESET_ID } from "../data/herouiTheme";
 import { applyThemePresetToDocument, isValidThemePreset, ThemeContext } from "./theme";
 
-function getSystemTheme() {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 function readStoredTheme() {
   const theme = localStorage.getItem("theme");
   if (theme === "light" || theme === "dark") return theme;
@@ -28,7 +23,7 @@ function readStoredThemePreset() {
 }
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => readStoredTheme() ?? getSystemTheme());
+  const [theme, setThemeState] = useState(() => readStoredTheme() ?? "light");
   const [themePreset, setThemePresetState] = useState(readStoredThemePreset);
 
   // this applies light/dark mode

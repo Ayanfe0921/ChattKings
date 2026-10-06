@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon, CornerUpLeftIcon, LoaderIcon, PlusIcon, SendIcon, SmilePlusIcon, UsersIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, CornerUpLeftIcon, LoaderIcon, PlusIcon, SendIcon, SmilePlusIcon, UsersIcon, XIcon, ListTodoIcon, DownloadIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../../lib/axios";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -15,6 +15,9 @@ export function GroupWorkspace() {
   const [activeGroup, setActiveGroup] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [taskDraft, setTaskDraft] = useState("");
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -48,8 +51,13 @@ export function GroupWorkspace() {
     const handleCreated = (group) => {
       setGroups((current) => current.some((item) => item._id === group._id) ? current : [group, ...current]);
     };
+    const handleUpdated = (group) => {
+      setGroups((current) => current.map((item) => item._id === group._id ? group : item));
+      setActiveGroup((current) => current?._id === group._id ? group : current);
+    };
     socket.on("group:created", handleCreated);
-    return () => socket.off("group:created", handleCreated);
+    socket.on("group:updated", handleUpdated);
+    return () => { socket.off("group:created", handleCreated); socket.off("group:updated", handleUpdated); };
   }, [socket]);
 
   useEffect(() => {
@@ -138,6 +146,57 @@ export function GroupWorkspace() {
     }
   };
 
+  const addTask = async (event) => {
+    event.preventDefault();
+    if (!taskDraft.trim() || !activeGroup) return;
+    try {
+      const response = await axiosInstance.post(`/groups/${activeGroup._id}/tasks`, { text: taskDraft });
+      setActiveGroup(response.data);
+      setGroups((current) => current.map((group) => group._id === response.data._id ? response.data : group));
+      setTaskDraft("");
+    } catch (error) { toast.error(error.response?.data?.message || "Could not add task"); }
+  };
+
+  const toggleTask = async (task) => {
+    try {
+      const response = await axiosInstance.patch(`/groups/${activeGroup._id}/tasks/${task._id}`, { completed: !task.completed });
+      setActiveGroup(response.data);
+      setGroups((current) => current.map((group) => group._id === response.data._id ? response.data : group));
+    } catch (error) { toast.error(error.response?.data?.message || "Could not update task"); }
+  };
+
+  const createPoll = async (event) => {
+    event.preventDefault();
+    try {
+      const response = await axiosInstance.post(`/groups/${activeGroup._id}/polls`, { question: pollQuestion, options: pollOptions });
+      setMessages((current) => current.some((message) => message._id === response.data._id) ? current : [...current, response.data]);
+      setPollQuestion(""); setPollOptions(["", ""]);
+    } catch (error) { toast.error(error.response?.data?.message || "Could not create poll"); }
+  };
+
+  const voteInPoll = async (message, optionIndex) => {
+    try {
+      const response = await axiosInstance.patch(`/groups/${activeGroup._id}/polls/${message._id}/vote`, { optionIndex });
+      setMessages((current) => current.map((item) => item._id === message._id ? response.data : item));
+    } catch (error) { toast.error(error.response?.data?.message || "Could not save vote"); }
+  };
+
+  const exportGroupHistory = () => {
+    if (!activeGroup) return;
+    const payload = {
+      group: activeGroup.name,
+      exportedAt: new Date().toISOString(),
+      messages: messages.map((message) => ({ timestamp: message.createdAt, sender: message.senderId?.fullName || "Member", text: message.text || "", sticker: message.sticker || null })),
+      tasks: (activeGroup.tasks || []).map(({ text, completed, createdAt }) => ({ text, completed, createdAt })),
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `chattkings-${activeGroup.name.replace(/[^a-z0-9-_]/gi, "-")}-history.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-full min-h-0">
       <aside className={`${activeGroup ? "hidden sm:flex" : "flex"} w-full shrink-0 flex-col border-r border-border bg-background sm:w-72`}>
@@ -163,7 +222,17 @@ export function GroupWorkspace() {
             <button type="button" onClick={() => setActiveGroup(null)} className="grid size-9 place-items-center rounded-lg hover:bg-surface sm:hidden" aria-label="Back to groups"><ArrowLeftIcon className="size-5" /></button>
             <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-accent"><UsersIcon className="size-4" /></span>
             <div className="min-w-0"><h2 className="truncate text-sm font-semibold">{activeGroup.name}</h2><p className="text-xs text-muted">{activeGroup.members?.length || 0} members · max 50</p></div>
+            <button type="button" onClick={exportGroupHistory} aria-label="Export group chat history as JSON" title="Export group history" className="ml-auto grid size-9 place-items-center rounded-lg hover:bg-surface"><DownloadIcon className="size-4"/></button>
           </header>
+          <section aria-label="Shared group task board" className="shrink-0 border-b border-border bg-surface/50 px-3 py-2 sm:px-5">
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold"><ListTodoIcon className="size-4 text-accent"/>Shared tasks</h3>
+            <div className="mb-2 flex max-h-24 flex-col gap-1 overflow-y-auto">
+              {(activeGroup.tasks || []).map((task) => <label key={task._id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={task.completed} onChange={() => toggleTask(task)} aria-label={`${task.completed ? "Reopen" : "Complete"} task: ${task.text}`} className="size-4 accent-[var(--accent)]"/><span className={task.completed ? "text-muted line-through" : ""}>{task.text}</span></label>)}
+              {!activeGroup.tasks?.length ? <p className="text-xs text-muted">Add a task to plan together.</p> : null}
+            </div>
+            <form onSubmit={addTask} className="flex gap-2"><input value={taskDraft} onChange={(event) => setTaskDraft(event.target.value)} maxLength={240} aria-label="New shared task" placeholder="Add a task" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"/><button type="submit" disabled={!taskDraft.trim()} className="rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground disabled:opacity-50">Add</button></form>
+            <details className="mt-2"><summary className="cursor-pointer text-xs font-medium text-accent">Create a group poll</summary><form onSubmit={createPoll} className="mt-2 space-y-2"><input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} maxLength={240} required aria-label="Poll question" placeholder="Ask a question" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"/>{pollOptions.map((option, index) => <input key={index} value={option} onChange={(event) => setPollOptions((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} maxLength={100} aria-label={`Poll option ${index + 1}`} placeholder={`Option ${index + 1}`} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"/>)}<div className="flex gap-2"><button type="button" disabled={pollOptions.length >= 6} onClick={() => setPollOptions((current) => [...current, ""])} className="rounded-lg border border-border px-2 py-1 text-xs disabled:opacity-50">Add option</button><button type="submit" disabled={!pollQuestion.trim() || pollOptions.filter((item) => item.trim()).length < 2} className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground disabled:opacity-50">Post poll</button></div></form></details>
+          </section>
           <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-5">
             {messages.map((message) => {
               const own = String(message.senderId?._id || message.senderId) === String(authUser?._id);
@@ -173,6 +242,7 @@ export function GroupWorkspace() {
                   {message.replyTo ? <div className="mb-2 rounded-lg border-l-2 border-accent bg-background/60 px-2 py-1 text-xs"><p className="font-semibold">{message.replyTo.senderName}</p><p className="truncate opacity-75">{message.replyTo.text || (message.replyTo.mediaType === "image" ? "Photo" : message.replyTo.mediaType === "video" ? "Video" : "Message")}</p></div> : null}
                   {message.sticker ? <p className="py-1 text-center text-6xl leading-none" role="img" aria-label="Sticker">{message.sticker}</p> : null}
                   {message.text ? <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p> : null}
+                  {message.poll ? <section aria-label={`Poll: ${message.poll.question}`} className="min-w-56"><h3 className="mb-2 text-sm font-semibold">{message.poll.question}</h3>{message.poll.options.map((option, index) => { const voters = option.votes || []; const total = message.poll.options.reduce((sum, item) => sum + (item.votes?.length || 0), 0); const mine = voters.some((id) => String(id?._id || id) === String(authUser?._id)); return <button key={`${index}-${option.text}`} type="button" onClick={() => voteInPoll(message, index)} className={`mb-1 w-full rounded-lg border px-2 py-1.5 text-left text-xs ${mine ? "border-accent bg-accent/10" : "border-border bg-background/60"}`}><span className="flex justify-between gap-3"><span>{option.text}</span><span>{voters.length}</span></span><span className="mt-1 block h-1 overflow-hidden rounded bg-surface"><span className="block h-full bg-accent" style={{ width: `${total ? (voters.length / total) * 100 : 0}%` }}/></span></button>; })}<p className="mt-1 text-right text-[10px] opacity-70">{message.poll.options.reduce((sum, option) => sum + (option.votes?.length || 0), 0)} votes</p></section> : null}
                   <time className="mt-1 block text-right text-[10px] opacity-65">{new Date(message.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
                   <div className="mt-1 flex items-center justify-end gap-1">
                     <button type="button" onClick={() => setReplyingTo(message)} className="grid size-7 place-items-center rounded-full opacity-70 hover:bg-black/10" aria-label="Reply to group message"><CornerUpLeftIcon className="size-4" /></button>

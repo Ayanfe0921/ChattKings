@@ -154,3 +154,76 @@ export async function sendGroupMessage(req, res) {
     res.status(500).json({ message: "Could not send group message" });
   }
 }
+
+export async function addGroupTask(req, res) {
+  try {
+    const text = String(req.body.text || "").trim();
+    if (!text || text.length > 240) return res.status(400).json({ message: "Task must be 1–240 characters" });
+    const group = await Group.findOne({ _id: req.params.id, members: req.user._id });
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    group.tasks.push({ text, createdBy: req.user._id });
+    await group.save();
+    const updated = await Group.findById(group._id).populate("members", "fullName profilePic");
+    for (const member of updated.members) io.to(`user:${member._id}`).emit("group:updated", updated);
+    res.status(201).json(updated);
+  } catch (error) {
+    console.error("Error adding group task:", error);
+    res.status(500).json({ message: "Could not add task" });
+  }
+}
+
+export async function updateGroupTask(req, res) {
+  try {
+    const group = await Group.findOne({ _id: req.params.id, members: req.user._id });
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    const task = group.tasks.id(req.params.taskId);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+    task.completed = Boolean(req.body.completed);
+    await group.save();
+    const updated = await Group.findById(group._id).populate("members", "fullName profilePic");
+    for (const member of updated.members) io.to(`user:${member._id}`).emit("group:updated", updated);
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("Error updating group task:", error);
+    res.status(500).json({ message: "Could not update task" });
+  }
+}
+
+export async function createGroupPoll(req, res) {
+  try {
+    const group = await Group.findOne({ _id: req.params.id, members: req.user._id });
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    const question = String(req.body.question || "").trim();
+    const options = [...new Set((Array.isArray(req.body.options) ? req.body.options : []).map((value) => String(value).trim()).filter(Boolean))];
+    if (!question || question.length > 240 || options.length < 2 || options.length > 6 || options.some((option) => option.length > 100)) {
+      return res.status(400).json({ message: "A poll needs a question and 2–6 options (maximum 100 characters each)" });
+    }
+    const message = await Message.create({ groupId: group._id, senderId: req.user._id, kind: "poll", poll: { question, options: options.map((text) => ({ text })) } });
+    const populated = await message.populate("senderId", "fullName profilePic");
+    io.to(`group:${group._id}`).emit("group:message", populated);
+    res.status(201).json(populated);
+  } catch (error) {
+    console.error("Error creating group poll:", error);
+    res.status(500).json({ message: "Could not create poll" });
+  }
+}
+
+export async function voteGroupPoll(req, res) {
+  try {
+    const group = await Group.findOne({ _id: req.params.groupId, members: req.user._id }).select("_id");
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    const message = await Message.findOne({ _id: req.params.messageId, groupId: group._id, kind: "poll" });
+    if (!message) return res.status(404).json({ message: "Poll not found" });
+    const optionIndex = Number(req.body.optionIndex);
+    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= message.poll.options.length) return res.status(400).json({ message: "Choose a valid option" });
+    for (const option of message.poll.options) option.votes = option.votes.filter((id) => String(id) !== String(req.user._id));
+    message.poll.options[optionIndex].votes.push(req.user._id);
+    await message.save();
+    const populated = await Message.findById(message._id).populate("senderId", "fullName profilePic");
+    io.to(`group:${group._id}`).emit("messageUpdated", populated);
+    res.status(200).json(populated);
+  } catch (error) {
+    console.error("Error voting in group poll:", error);
+    res.status(500).json({ message: "Could not save poll vote" });
+  }
+}

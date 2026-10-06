@@ -114,6 +114,7 @@ export function ChatComposer() {
         <Button
           variant="ghost"
           isIconOnly
+          aria-label="Attach a photo or video"
           isDisabled={isSendingMedia}
           className="size-9 shrink-0 touch-manipulation self-end text-accent"
           onPress={() => mediaInputRef.current?.click()}
@@ -130,6 +131,7 @@ export function ChatComposer() {
           fullWidth
           variant="secondary"
           placeholder="Start Chatting"
+          aria-label="Write a message"
           rows={1}
           value={composerText}
           onChange={handleComposerTextChange}
@@ -142,7 +144,7 @@ export function ChatComposer() {
           className="flex-1 rounded-full"
         />
 
-        <div className="flex shrink-0 items-center gap-0.5"><Button variant={isRecording ? "primary" : "ghost"} isIconOnly aria-label={isRecording ? "Stop recording and send" : "Record voice note"} className="size-9 text-accent" onPress={toggleRecording}>{isRecording ? <SquareIcon className="size-4" /> : <MicIcon className="size-5" />}</Button><Button variant="primary" isIconOnly isDisabled={!composerText.trim()} onPress={handleSend}><SendHorizontalIcon className="size-5" /></Button></div>
+        <div className="flex shrink-0 items-center gap-0.5"><Button variant={isRecording ? "primary" : "ghost"} isIconOnly aria-label={isRecording ? "Stop recording and send" : "Record voice note"} className="size-9 text-accent" onPress={toggleRecording}>{isRecording ? <SquareIcon className="size-4" /> : <MicIcon className="size-5" />}</Button><Button variant="primary" isIconOnly aria-label="Send message" isDisabled={!composerText.trim()} onPress={handleSend}><SendHorizontalIcon className="size-5" /></Button></div>
       </div>
     </footer>
   );

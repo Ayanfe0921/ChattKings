@@ -8,6 +8,7 @@ import {
   setContactTag,
   setOnlineStatusVisibility,
   setMessagePin,
+  setContactBlocked,
   markMessagesRead,
   sendMessage,
   toggleMessageReaction,
@@ -25,6 +26,7 @@ router.get("/streaks", getStreaks);
 router.patch("/read/:id", markMessagesRead);
 router.patch("/settings/online-status", setOnlineStatusVisibility);
 router.put("/contacts/:peerId/tag", setContactTag);
+router.put("/contacts/:peerId/block", setContactBlocked);
 router.delete("/:id", deleteMessage);
 router.patch("/:id/reaction", toggleMessageReaction);
 router.patch("/:id/pin", setMessagePin);

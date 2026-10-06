@@ -41,6 +41,13 @@ const messageSchema = new mongoose.Schema(
       quoteAuthor: { type: String, maxlength: 160 },
       authorName: { type: String, maxlength: 120 },
     },
+    poll: {
+      question: { type: String, maxlength: 240 },
+      options: [{
+        text: { type: String, maxlength: 100 },
+        votes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      }],
+    },
     reactions: [{
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       emoji: { type: String, required: true, maxlength: 16 },
@@ -51,7 +58,7 @@ const messageSchema = new mongoose.Schema(
     }],
     kind: {
       type: String,
-      enum: ["message", "streak-notice"],
+      enum: ["message", "streak-notice", "poll"],
       default: "message",
     },
     readAt: {

@@ -21,7 +21,10 @@ const userSchema = new mongoose.Schema(
         default: "",
     },
     contactTags: { type: Map, of: String, default: {} },
+    blockedUsers: { type: [mongoose.Schema.Types.ObjectId], ref: "User", default: [] },
     showOnlineStatus: { type: Boolean, default: true },
+    suspendedAt: { type: Date, default: null },
+    suspensionReason: { type: String, default: "" },
 }, 
   {timestamps: true} //createdAt or updatedAt
 );

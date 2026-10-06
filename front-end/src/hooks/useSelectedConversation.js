@@ -24,6 +24,7 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
     role: String(message.senderId?._id || message.senderId) === String(authUser?._id) ? "me" : "them",
     text: message.text || "",
     time: formatMessageTime(message.createdAt),
+    createdAt: message.createdAt,
     imageUrl: message.image,
     videoUrl: message.video,
     audioUrl: message.audio,
@@ -47,6 +48,8 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers }) {
       isOnline: user.showOnlineStatus !== false && onlineUsers.includes(user._id),
       avatarUrl: user.profilePic,
       initials: getInitials(user.fullName),
+      isBlocked: Boolean(user.isBlocked),
+      isBlockedByPeer: Boolean(user.isBlockedByPeer),
     },
     messages: mappedMessages,
   };

@@ -43,6 +43,11 @@ export async function protectRoute(req, res, next) {
 
     req.user = user;
 
+    if (user.suspendedAt) {
+      res.status(403).json({ message: "This ChattKings account has been suspended after reaching the community report threshold. Sign up with a different email address to create a new account." });
+      return;
+    }
+
     next();
   } catch (error) {
     console.error("Error in protectRoute middleware:", error.message);

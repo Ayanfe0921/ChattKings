@@ -71,7 +71,7 @@ function ChatPage() {
             >
               <ChatHeader />
               <MessageList />
-              {activeConversation && navigator.onLine ? <ChatComposer /> : null}
+              {activeConversation?.peer.isBlocked ? <div className="shrink-0 border-t border-border bg-surface px-4 py-3 text-center text-sm text-muted">You blocked this person. <button type="button" className="font-semibold text-accent underline" onClick={() => useChatStore.getState().setContactBlocked(activeConversation.id, false)}>Unblock to send messages</button></div> : activeConversation?.peer.isBlockedByPeer ? <div className="shrink-0 border-t border-border bg-surface px-4 py-3 text-center text-sm text-muted">You can’t message this person right now.</div> : activeConversation && navigator.onLine ? <ChatComposer /> : null}
             </div>
           </>
         ) : (

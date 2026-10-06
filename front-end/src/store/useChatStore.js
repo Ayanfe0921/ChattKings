@@ -25,6 +25,7 @@ export const useChatStore = create(
       replyingTo: null,
       composerPostReply: null,
       isSoundEnabled: true,
+      isDataSaverEnabled: false,
       isSendingMedia: false,
       messageSearchQuery: "",
 
@@ -94,6 +95,16 @@ export const useChatStore = create(
           await axiosInstance.put(`/messages/contacts/${peerId}/tag`, { tag });
           set((state) => ({ users: state.users.map((user) => String(user._id) === String(peerId) ? { ...user, contactTag: tag } : user), conversations: state.conversations.map((user) => String(user._id) === String(peerId) ? { ...user, contactTag: tag } : user) }));
         } catch (error) { toast.error(error.response?.data?.message || "Could not save tag"); }
+      },
+
+      setContactBlocked: async (peerId, blocked, report = false) => {
+        try {
+          await axiosInstance.put(`/messages/contacts/${peerId}/block`, { blocked, report });
+          const update = (items) => items.map((user) => String(user._id) === String(peerId) ? { ...user, isBlocked: blocked } : user);
+          set((state) => ({ users: update(state.users), conversations: update(state.conversations), selectedUser: state.selectedUser && String(state.selectedUser._id) === String(peerId) ? { ...state.selectedUser, isBlocked: blocked } : state.selectedUser }));
+          toast.success(blocked ? "Contact blocked" : "Contact unblocked");
+          return true;
+        } catch (error) { toast.error(error.response?.data?.message || "Could not update blocked contact"); return false; }
       },
 
       deleteMessage: async (messageId, scope) => {
@@ -217,6 +228,9 @@ export const useChatStore = create(
         socket.on("newMessage", async (newMessage) => {
           const authUser = useAuthStore.getState().authUser;
           if (String(newMessage.receiverId) !== String(authUser?._id)) return;
+          const blockedIds = useChatStore.getState().users;
+          const senderId = newMessage.senderId?._id || newMessage.senderId;
+          if (blockedIds.some((user) => String(user._id) === String(senderId) && user.isBlocked)) return;
 
           const peerId = String(newMessage.senderId);
           const isOpen = String(get().activeConversationId) === peerId;
@@ -326,6 +340,7 @@ export const useChatStore = create(
       setWorkspaceSection: (workspaceSection) => set({ workspaceSection }),
       setComposerText: (composerText) => set({ composerText }),
       setSoundEnabled: (isSoundEnabled) => set({ isSoundEnabled }),
+      setDataSaverEnabled: (isDataSaverEnabled) => set({ isDataSaverEnabled }),
 
       sendTextMessage: async (conversationId) => {
         const messageText = get().composerText.trim();
@@ -359,6 +374,7 @@ export const useChatStore = create(
       name: "imessage-storage",
       partialize: (state) => ({
         isSoundEnabled: state.isSoundEnabled,
+        isDataSaverEnabled: state.isDataSaverEnabled,
         // Keep the most recently synced conversations and histories available offline.
         users: state.users,
         conversations: state.conversations,

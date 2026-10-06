@@ -1,6 +1,6 @@
 import { Avatar, Button } from "@heroui/react";
 import { useState } from "react";
-import { ChevronLeftIcon, Volume2Icon, VolumeXIcon, XIcon, SearchIcon, PlusIcon } from "lucide-react";
+import { ChevronLeftIcon, Volume2Icon, VolumeXIcon, XIcon, SearchIcon, PlusIcon, BanIcon, DownloadIcon, GaugeIcon } from "lucide-react";
 import { AppLogo } from "../AppLogo";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
 
@@ -31,6 +31,8 @@ function CallAction({ peer }) {
 }
 
 export function ChatHeader() {
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [reportOnBlock, setReportOnBlock] = useState(false);
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
@@ -41,11 +43,32 @@ export function ChatHeader() {
   const isSoundEnabled = useChatStore((state) => state.isSoundEnabled);
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
   const setSoundEnabled = useChatStore((state) => state.setSoundEnabled);
+  const isDataSaverEnabled = useChatStore((state) => state.isDataSaverEnabled);
+  const setDataSaverEnabled = useChatStore((state) => state.setDataSaverEnabled);
+  const setContactBlocked = useChatStore((state) => state.setContactBlocked);
 
   const { activeConversation, isLargeScreen } = useSelectedConversation();
   const streak = useChatStore((state) =>
     state.streaks[String(activeConversation?.id)],
   );
+
+  const exportConversation = () => {
+    if (!activeConversation) return;
+    const lines = activeConversation.messages.map((message) => ({
+      timestamp: message.createdAt || message.time,
+      sender: message.role === "me" ? "You" : activeConversation.peer.name,
+      text: message.text || "",
+      attachment: message.imageUrl || message.videoUrl || message.audioUrl || null,
+      sticker: message.sticker || null,
+    }));
+    const blob = new Blob([JSON.stringify({ conversation: activeConversation.peer.name, exportedAt: new Date().toISOString(), messages: lines }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `chattkings-${activeConversation.peer.name.replace(/[^a-z0-9-_]/gi, "-")}-history.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <header className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-1 border-b border-border px-1.5 py-1.5 sm:gap-2 sm:px-2 sm:py-2">
@@ -110,9 +133,14 @@ export function ChatHeader() {
 
         <ThemeToggle />
 
+        <Button variant={isDataSaverEnabled ? "primary" : "ghost"} size="sm" isIconOnly aria-label={isDataSaverEnabled ? "Turn off data saver" : "Turn on data saver"} aria-pressed={isDataSaverEnabled} title="Data saver" onPress={() => setDataSaverEnabled(!isDataSaverEnabled)}><GaugeIcon className="size-5"/></Button>
+
         <CallAction peer={activeConversation ? { id: activeConversation.id, name: activeConversation.peer.name, isOnline: activeConversation.peer.isOnline } : null} />
 
+        {activeConversation ? <Button variant="ghost" size="sm" isIconOnly aria-label="Export this chat history as JSON" title="Export chat history" onPress={exportConversation}><DownloadIcon className="size-5" /></Button> : null}
         {activeConversation ? <Button variant="ghost" size="sm" isIconOnly aria-label="Search messages in this chat" aria-pressed={messageSearchOpen} onPress={() => { setMessageSearchOpen((open) => !open); setMessageSearchQuery(""); }}><SearchIcon className="size-5" /></Button> : null}
+
+        {activeConversation ? <Button variant="ghost" size="sm" isIconOnly aria-label={activeConversation.peer.isBlocked ? "Unblock this person" : "Block this person"} title={activeConversation.peer.isBlocked ? "Unblock this person" : "Block this person"} onPress={() => activeConversation.peer.isBlocked ? setContactBlocked(activeConversation.id, false) : setBlockDialogOpen(true)}><BanIcon className={`size-5 ${activeConversation.peer.isBlocked ? "text-danger" : ""}`} /></Button> : null}
 
         <Button
           variant="ghost"
@@ -143,6 +171,8 @@ export function ChatHeader() {
         ) : null}
       </div>
       {messageSearchOpen && activeConversation ? <div className="basis-full px-2 pb-1"><input autoFocus value={messageSearchQuery} onChange={(event) => setMessageSearchQuery(event.target.value)} placeholder="Search messages in this chat" className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent" /></div> : null}
+      {blockDialogOpen && activeConversation ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setBlockDialogOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="block-contact-title" className="w-full max-w-sm rounded-2xl border border-border bg-background p-5 text-foreground shadow-2xl"><h2 id="block-contact-title" className="text-lg font-semibold">Block {activeConversation.peer.name}?</h2><p className="mt-2 text-sm text-muted">They won’t be able to send you messages, and you won’t be able to message them. Your chat history will stay saved.</p><label className="mt-4 flex cursor-pointer items-center gap-3 rounded-xl bg-surface p-3"><input type="checkbox" checked={reportOnBlock} onChange={(event) => setReportOnBlock(event.target.checked)} className="size-4 accent-[var(--accent)]"/><span><span className="block text-sm font-medium">Also report to ChattKings</span><span className="block text-xs text-muted">Ten unique reports from different accounts automatically suspend the reported account.</span></span></label><div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onPress={() => { setBlockDialogOpen(false); setReportOnBlock(false); }}>No</Button><Button variant="danger" onPress={async () => { const done = await setContactBlocked(activeConversation.id, true, reportOnBlock); if (done) { setBlockDialogOpen(false); setReportOnBlock(false); } }}>Yes, block</Button></div></section></div> : null}
     </header>
   );
 }
+

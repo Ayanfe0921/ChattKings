@@ -13,6 +13,7 @@ export function MessageList() {
   const setMessagePin = useChatStore((state) => state.setMessagePin);
   const messageSearchQuery = useChatStore((state) => state.messageSearchQuery);
   const currentUserId = useAuthStore((state) => state.authUser?._id);
+  const dataSaver = useChatStore((state) => state.isDataSaverEnabled);
   const pinnedMessages = (activeConversation?.messages || [])
     .flatMap((message) => (message.pinnedBy || []).some((pin) => String(pin.userId) === String(currentUserId)) ? [message] : [])
     .sort((a, b) => new Date(b.pinnedBy.find((pin) => String(pin.userId) === String(currentUserId)).pinnedAt) - new Date(a.pinnedBy.find((pin) => String(pin.userId) === String(currentUserId)).pinnedAt));
@@ -37,6 +38,7 @@ export function MessageList() {
               key={message.id}
               message={message}
               currentUserId={currentUserId}
+              dataSaver={dataSaver}
               onReply={setReplyingTo}
               onReact={toggleMessageReaction}
               onDelete={deleteMessage}

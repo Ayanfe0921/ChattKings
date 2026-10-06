@@ -3,6 +3,7 @@ import Message from "../models/message.model.js";
 import Streak from "../models/streak.model.js";
 import { hasImageKitConfig, uploadChatMedia } from "../lib/imagekit.js";
 import { io } from "../lib/socket.js";
+import BlockReport from "../models/blockReport.model.js";
 
 const STREAK_MILESTONES = [100, 500, 1000, 5000];
 
@@ -127,9 +128,11 @@ export async function getUsersForSidebar(req, res) {
 
     const [filteredUsers, me] = await Promise.all([User.find({
       _id: { $ne: loggedInUserId },
-    }).select("-clerkId").lean(), User.findById(loggedInUserId).select("contactTags").lean()]);
+    }).select("-clerkId").lean(), User.findById(loggedInUserId).select("contactTags blockedUsers").lean()]);
     const tags = me?.contactTags || {};
-    filteredUsers.forEach((user) => { user.contactTag = tags[String(user._id)] || ""; });
+    const blockedIds = new Set((me?.blockedUsers || []).map(String));
+    const blockedByMe = new Set((await User.find({ blockedUsers: loggedInUserId }).distinct("_id")).map(String));
+    filteredUsers.forEach((user) => { user.contactTag = tags[String(user._id)] || ""; user.isBlocked = blockedIds.has(String(user._id)); user.isBlockedByPeer = blockedByMe.has(String(user._id)); });
 
     res.status(200).json(filteredUsers);
   } catch (error) {
@@ -213,9 +216,11 @@ export async function getConversationsForSidebar(req, res) {
       { $replaceRoot: { newRoot: "$user" } },
       // 6. Hide the private clerkId field from the result.
       { $project: { clerkId: 0 } },
-    ]), User.findById(loggedInUserId).select("contactTags").lean()]);
+    ]), User.findById(loggedInUserId).select("contactTags blockedUsers").lean()]);
     const tags = me?.contactTags || {};
-    conversations.forEach((user) => { user.contactTag = tags[String(user._id)] || ""; });
+    const blockedIds = new Set((me?.blockedUsers || []).map(String));
+    const blockedByMe = new Set((await User.find({ blockedUsers: loggedInUserId }).distinct("_id")).map(String));
+    conversations.forEach((user) => { user.contactTag = tags[String(user._id)] || ""; user.isBlocked = blockedIds.has(String(user._id)); user.isBlockedByPeer = blockedByMe.has(String(user._id)); });
 
     res.status(200).json(conversations);
   } catch (error) {
@@ -241,6 +246,45 @@ export async function getMessages(req, res) {
   } catch (error) {
     console.error("Error in getMessages:", error.message);
     res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function setContactBlocked(req, res) {
+  try {
+    const { peerId } = req.params;
+    if (!peerId || String(peerId) === String(req.user._id)) return res.status(400).json({ message: "Choose another user to block" });
+    const peerExists = await User.exists({ _id: peerId });
+    if (!peerExists) return res.status(404).json({ message: "User not found" });
+    const shouldBlock = Boolean(req.body.blocked);
+    if (shouldBlock) {
+      await User.updateOne({ _id: req.user._id }, { $addToSet: { blockedUsers: peerId } });
+      io.to(`user:${peerId}`).emit("contactBlocked", { peerId: String(req.user._id) });
+      if (req.body.report) {
+        try {
+          await BlockReport.create({ reporterId: req.user._id, reportedUserId: peerId });
+        } catch (error) {
+          // A repeat report from the same account does not count again.
+          if (error.code !== 11000) throw error;
+        }
+        const uniqueReportCount = await BlockReport.countDocuments({ reportedUserId: peerId });
+        if (uniqueReportCount >= 10) {
+          const suspendedUser = await User.findOneAndUpdate(
+            { _id: peerId, suspendedAt: null },
+            { $set: { suspendedAt: new Date(), suspensionReason: "Reached 10 unique account reports" } },
+            { new: true },
+          );
+          if (suspendedUser) {
+            io.to(`user:${peerId}`).emit("accountSuspended", { message: "Your ChattKings account has been suspended after reaching the community report threshold. Sign up with a different email address to create a new account." });
+          }
+        }
+      }
+    } else {
+      await User.updateOne({ _id: req.user._id }, { $pull: { blockedUsers: peerId } });
+    }
+    res.status(200).json({ blocked: shouldBlock });
+  } catch (error) {
+    console.error("Error updating blocked contact:", error.message);
+    res.status(500).json({ message: "Could not update blocked contact" });
   }
 }
 
@@ -286,6 +330,11 @@ export async function sendMessage(req, res) {
     }
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
+
+    if (await User.exists({ _id: senderId, blockedUsers: receiverId })) {
+      return res.status(403).json({ message: "Unblock this person before sending messages" });
+    }
+    if (await User.exists({ _id: receiverId, blockedUsers: senderId })) return res.status(403).json({ message: "This person is not accepting messages from you" });
 
     let imageUrl;
     let videoUrl;
