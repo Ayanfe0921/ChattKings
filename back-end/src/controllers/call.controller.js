@@ -1,5 +1,6 @@
 import Call from "../models/call.model.js";
 import Message from "../models/message.model.js";
+import User from "../models/user.model.js";
 import mongoose from "mongoose";
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -59,7 +60,11 @@ async function getEligibility(myId, peerId) {
 
 export async function checkCallEligibility(req, res) {
   try {
-    const result = await getEligibility(req.user._id, req.params.peerId);
+    const receiver = await User.findById(req.params.peerId).select("allowedCallers").lean();
+    const allowlisted = receiver?.allowedCallers?.some((id) => String(id) === String(req.user._id));
+    const result = allowlisted
+      ? { eligible: true, allowedByRecipient: true }
+      : await getEligibility(req.user._id, req.params.peerId);
     res.status(200).json(result);
   } catch (error) {
     console.error("Error checking call eligibility:", error);
@@ -76,7 +81,9 @@ export async function createCall(req, res) {
     if (!["voice", "video"].includes(callType)) {
       return res.status(400).json({ message: "Choose a voice or video call" });
     }
-    const eligibility = await getEligibility(req.user._id, peerId);
+    const receiver = await User.findById(peerId).select("allowedCallers").lean();
+    const allowlisted = receiver?.allowedCallers?.some((id) => String(id) === String(req.user._id));
+    const eligibility = allowlisted ? { eligible: true } : await getEligibility(req.user._id, peerId);
     if (!eligibility.eligible) {
       return res.status(403).json({
         message: "Calls unlock after both people have chatted on at least 3 days over 3 days.",

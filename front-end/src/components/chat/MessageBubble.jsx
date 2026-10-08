@@ -95,21 +95,21 @@ export function MessageBubble({ message, onReply, onReact, onDelete, onPin, curr
         {message.text ? (
           <p className="whitespace-pre-wrap wrap-break-word">{message.text}</p>
         ) : null}
-        <div className="mt-1 flex items-center justify-end gap-1">
-          <button type="button" onClick={() => onReply(message)} className="hidden size-7 place-items-center rounded-full opacity-70 hover:bg-black/10 hover:opacity-100 sm:grid sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label="Reply to message" title="Reply">
+        <div className="mt-1 flex items-center justify-end gap-1 rounded-full bg-black/[0.04] px-1">
+          <button type="button" onClick={() => onReply(message)} className="grid size-8 place-items-center rounded-full opacity-75 hover:bg-black/10 hover:opacity-100" aria-label="Reply to message" title="Reply">
             <CornerUpLeftIcon className="size-4" />
           </button>
           <div className="relative">
-            <button type="button" onClick={() => { setShowReactions((open) => !open); clearTimeout(reactionTimeoutRef.current); }} className="hidden size-7 place-items-center rounded-full opacity-70 hover:bg-black/10 hover:opacity-100 sm:grid sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label="React to message" title="React">
+            <button type="button" onClick={() => { setShowReactions((open) => !open); clearTimeout(reactionTimeoutRef.current); }} className="grid size-8 place-items-center rounded-full opacity-75 hover:bg-black/10 hover:opacity-100" aria-label="React to message" title="React">
               <SmilePlusIcon className="size-4" />
             </button>
-            {showReactions ? <div className="absolute bottom-full right-0 z-20 mb-1 flex rounded-full border border-border bg-background p-1 shadow-lg">
+            {showReactions ? <div className="absolute bottom-full right-0 z-20 mb-1 flex max-w-[calc(100vw-2rem)] rounded-full border border-border bg-background p-1 shadow-lg">
               {QUICK_REACTIONS.map((emoji) => <button key={emoji} type="button" onClick={() => { onReact(message.id, emoji); setShowReactions(false); }} className="grid size-8 place-items-center rounded-full text-lg hover:bg-surface" aria-label={`React ${emoji}`}>{emoji}</button>)}
             </div> : null}
           </div>
-          <button type="button" onClick={() => onPin(message.id, !isPinned)} className={`grid size-7 place-items-center rounded-full opacity-70 hover:bg-black/10 hover:opacity-100 ${isPinned ? "text-accent" : ""}`} aria-label={isPinned ? "Unpin message" : "Pin message"} title={isPinned ? "Unpin message" : "Pin message"}><PinIcon className="size-4" /></button>
+          <button type="button" onClick={() => onPin(message.id, !isPinned)} className={`grid size-8 place-items-center rounded-full opacity-75 hover:bg-black/10 hover:opacity-100 ${isPinned ? "text-accent" : ""}`} aria-label={isPinned ? "Unpin message" : "Pin message"} title={isPinned ? "Unpin message" : "Pin message"}><PinIcon className="size-4" /></button>
           <div className="relative">
-            <button type="button" onClick={() => setShowDeleteOptions((open) => !open)} className="grid size-7 place-items-center rounded-full opacity-70 hover:bg-black/10 hover:opacity-100" aria-label="Delete message" title="Delete"><Trash2Icon className="size-4" /></button>
+            <button type="button" onClick={() => setShowDeleteOptions((open) => !open)} className="grid size-8 place-items-center rounded-full opacity-75 hover:bg-black/10 hover:opacity-100" aria-label="Delete message" title="Delete"><Trash2Icon className="size-4" /></button>
             {showDeleteOptions ? <div className="absolute bottom-full right-0 z-20 mb-1 w-40 rounded-xl border border-border bg-background p-1 text-foreground shadow-lg"><button type="button" onClick={() => { onDelete(message._id || message.id, "me"); setShowDeleteOptions(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-surface">Delete for me</button>{isOwnMessage ? <button type="button" onClick={() => { onDelete(message._id || message.id, "everyone"); setShowDeleteOptions(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-surface">Delete for everyone</button> : null}</div> : null}
           </div>
         </div>

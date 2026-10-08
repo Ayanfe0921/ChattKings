@@ -14,19 +14,38 @@ import { useSelectedConversation } from "../../hooks/useSelectedConversation";
 import { StreakIndicator } from "./StreakIndicator";
 import { useCallStore } from "../../store/useCallStore";
 import { PhoneIcon } from "lucide-react";
+import { CheckIcon, UsersIcon } from "lucide-react";
+import { useAuthStore } from "../../store/useAuthStore";
+import { axiosInstance } from "../../lib/axios";
+import toast from "react-hot-toast";
 
 function CallAction({ peer }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [callMenuOpen, setCallMenuOpen] = useState(false);
+  const [selected, setSelected] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const conversations = useChatStore((state) => state.conversations);
+  const authUser = useAuthStore((state) => state.authUser);
   const startCall = useCallStore((state) => state.startCall);
   const canCall = Boolean(navigator.onLine && peer?.isOnline);
+  const callers = authUser?.allowedCallers || [];
+  const open = () => { setSelected(callers.map(String)); setIsOpen(true); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      const response = await axiosInstance.patch("/messages/settings/allowed-callers", { callers: selected });
+      useAuthStore.setState((state) => ({ authUser: { ...state.authUser, allowedCallers: response.data.allowedCallers } }));
+      toast.success("Call access updated"); setIsOpen(false);
+    } catch (error) { toast.error(error.response?.data?.message || "Could not update call access"); }
+    finally { setSaving(false); }
+  };
 
   return <div className="relative">
-    <Button variant="ghost" size="sm" isIconOnly aria-label="Start a call" title={canCall ? "Start a call" : "Calling is available when you and this person are online"} isDisabled={!canCall} aria-expanded={isOpen} onPress={() => setIsOpen((open) => !open)}>
+    <Button variant="ghost" size="sm" isIconOnly aria-label={peer ? "Call options and caller settings" : "Select who can call me"} title={peer ? "Call options and caller settings" : "Select who can call me"} aria-expanded={isOpen || callMenuOpen} onPress={() => peer ? setCallMenuOpen((value) => !value) : open()}>
       <PhoneIcon className="size-5" strokeWidth={2} aria-hidden />
     </Button>
-    {isOpen && canCall ? <div className="absolute right-0 top-full z-30 mt-2 w-40 rounded-xl border border-border bg-background p-1.5 shadow-xl">
-      {["voice", "video"].map((callType) => <button key={callType} type="button" onClick={() => { setIsOpen(false); startCall({ _id: peer.id, fullName: peer.name, isOnline: peer.isOnline }, callType); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-surface">{callType === "video" ? "Video call" : "Voice call"}</button>)}
-    </div> : null}
+    {callMenuOpen ? <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-xl border border-border bg-background p-1.5 shadow-xl">{peer && canCall ? ["voice", "video"].map((callType) => <button key={callType} type="button" onClick={() => { setCallMenuOpen(false); startCall({ _id: peer.id, fullName: peer.name, isOnline: peer.isOnline }, callType); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm capitalize hover:bg-surface">{callType === "video" ? "Video call" : "Voice call"}</button>) : null}<button type="button" onClick={() => { setCallMenuOpen(false); open(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface">Select who can call me</button></div> : null}
+    {isOpen ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="callers-title" className="flex max-h-[85dvh] w-full max-w-md flex-col rounded-2xl border border-border bg-background text-foreground shadow-2xl"><header className="border-b border-border p-5"><h2 id="callers-title" className="flex items-center gap-2 text-lg font-semibold"><UsersIcon className="size-5 text-accent"/>Select who can call me</h2><p className="mt-1 text-sm text-muted">Choose people you’ve chatted with. They can call you even when read receipts are off.</p></header><div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">{conversations.length ? conversations.map((person) => { const id = String(person._id); const checked = selected.includes(id); return <button key={id} type="button" aria-pressed={checked} onClick={() => setSelected((items) => checked ? items.filter((item) => item !== id) : [...items, id])} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-surface"><span className={`grid size-5 place-items-center rounded-md border ${checked ? "border-accent bg-accent text-accent-foreground" : "border-border"}`}>{checked ? <CheckIcon className="size-4"/> : null}</span><span className="min-w-0 flex-1 truncate text-sm font-medium">{person.fullName}</span><span className="text-xs text-muted">{person.lastMessageAt ? new Date(person.lastMessageAt).toLocaleDateString() : "Chat"}</span></button>; }) : <p className="p-5 text-center text-sm text-muted">People you’ve chatted with will appear here.</p>}</div><footer className="flex justify-end gap-2 border-t border-border p-4"><Button variant="ghost" onPress={() => setIsOpen(false)}>Cancel</Button><Button isDisabled={saving} onPress={save}>{saving ? "Saving…" : "OK"}</Button></footer></section></div> : null}
   </div>;
 }
 

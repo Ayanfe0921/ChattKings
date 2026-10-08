@@ -4,6 +4,7 @@ import Streak from "../models/streak.model.js";
 import { hasImageKitConfig, uploadChatMedia } from "../lib/imagekit.js";
 import { io } from "../lib/socket.js";
 import BlockReport from "../models/blockReport.model.js";
+import mongoose from "mongoose";
 
 const STREAK_MILESTONES = [100, 500, 1000, 5000];
 
@@ -531,4 +532,17 @@ export async function setOnlineStatusVisibility(req, res) {
   await User.updateOne({ _id: req.user._id }, { $set: { showOnlineStatus: enabled } });
   io.emit("presenceVisibilityChanged", { userId: String(req.user._id), enabled });
   res.status(200).json({ showOnlineStatus: enabled });
+}
+
+export async function setAllowedCallers(req, res) {
+  const callers = Array.isArray(req.body.callers) ? [...new Set(req.body.callers.map(String))] : [];
+  if (callers.some((id) => !mongoose.isValidObjectId(id) || id === String(req.user._id))) {
+    return res.status(400).json({ message: "Choose valid contacts" });
+  }
+  const chattedIds = await Message.distinct("senderId", { receiverId: req.user._id, groupId: null });
+  const sentIds = await Message.distinct("receiverId", { senderId: req.user._id, groupId: null });
+  const known = new Set([...chattedIds, ...sentIds].map(String));
+  if (callers.some((id) => !known.has(id))) return res.status(400).json({ message: "Choose people you have chatted with" });
+  await User.updateOne({ _id: req.user._id }, { $set: { allowedCallers: callers } });
+  res.status(200).json({ allowedCallers: callers });
 }

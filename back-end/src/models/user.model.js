@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
     contactTags: { type: Map, of: String, default: {} },
     blockedUsers: { type: [mongoose.Schema.Types.ObjectId], ref: "User", default: [] },
     showOnlineStatus: { type: Boolean, default: true },
+    allowedCallers: { type: [mongoose.Schema.Types.ObjectId], ref: "User", default: [] },
     suspendedAt: { type: Date, default: null },
     suspensionReason: { type: String, default: "" },
 }, 

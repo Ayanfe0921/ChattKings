@@ -12,6 +12,7 @@ import {
   markMessagesRead,
   sendMessage,
   toggleMessageReaction,
+  setAllowedCallers,
 } from "../controllers/message.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
@@ -25,6 +26,7 @@ router.get("/conversations", getConversationsForSidebar);
 router.get("/streaks", getStreaks);
 router.patch("/read/:id", markMessagesRead);
 router.patch("/settings/online-status", setOnlineStatusVisibility);
+router.patch("/settings/allowed-callers", setAllowedCallers);
 router.put("/contacts/:peerId/tag", setContactTag);
 router.put("/contacts/:peerId/block", setContactBlocked);
 router.delete("/:id", deleteMessage);
