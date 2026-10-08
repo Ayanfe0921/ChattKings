@@ -1,70 +1,14 @@
 import Call from "../models/call.model.js";
-import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
 
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-
-async function getEligibility(myId, peerId) {
-  if (!mongoose.isValidObjectId(peerId) || String(myId) === String(peerId)) {
-    return { eligible: false, activeDays: 0, firstMessageAt: null };
-  }
-  const activity = await Message.aggregate([
-    {
-      $match: {
-        $or: [
-          { senderId: myId, receiverId: peerId },
-          { senderId: peerId, receiverId: myId },
-        ],
-        kind: { $ne: "streak-notice" },
-      },
-    },
-    {
-      $project: {
-        senderId: 1,
-        createdAt: 1,
-        day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-      },
-    },
-    {
-      $group: {
-        _id: { senderId: "$senderId", day: "$day" },
-        firstMessageAt: { $min: "$createdAt" },
-      },
-    },
-    {
-      $group: {
-        _id: "$_id.senderId",
-        activeDays: { $sum: 1 },
-        firstMessageAt: { $min: "$firstMessageAt" },
-      },
-    },
-  ]);
-
-  const bothHaveThreeDays = [String(myId), String(peerId)].every((id) =>
-    activity.some((entry) => String(entry._id) === id && entry.activeDays >= 3),
-  );
-  const firstMessageAt = activity.reduce(
-    (earliest, entry) =>
-      !earliest || entry.firstMessageAt < earliest ? entry.firstMessageAt : earliest,
-    null,
-  );
-  const oldEnough = firstMessageAt && Date.now() - firstMessageAt.getTime() >= THREE_DAYS_MS;
-
-  return {
-    eligible: Boolean(bothHaveThreeDays && oldEnough),
-    activeDays: activity.reduce((sum, entry) => sum + entry.activeDays, 0),
-    firstMessageAt,
-  };
-}
-
 export async function checkCallEligibility(req, res) {
   try {
-    const receiver = await User.findById(req.params.peerId).select("allowedCallers").lean();
+    if (!mongoose.isValidObjectId(req.params.peerId)) return res.status(200).json({ eligible: false });
+    const receiver = await User.findById(req.params.peerId).select("allowedCallers showReadReceipts").lean();
     const allowlisted = receiver?.allowedCallers?.some((id) => String(id) === String(req.user._id));
-    const result = allowlisted
-      ? { eligible: true, allowedByRecipient: true }
-      : await getEligibility(req.user._id, req.params.peerId);
+    const allowed = receiver?.showReadReceipts !== false || Boolean(allowlisted);
+    const result = { eligible: Boolean(allowed), allowedByRecipient: Boolean(allowlisted) };
     res.status(200).json(result);
   } catch (error) {
     console.error("Error checking call eligibility:", error);
@@ -81,13 +25,11 @@ export async function createCall(req, res) {
     if (!["voice", "video"].includes(callType)) {
       return res.status(400).json({ message: "Choose a voice or video call" });
     }
-    const receiver = await User.findById(peerId).select("allowedCallers").lean();
+    const receiver = await User.findById(peerId).select("allowedCallers showReadReceipts").lean();
     const allowlisted = receiver?.allowedCallers?.some((id) => String(id) === String(req.user._id));
-    const eligibility = allowlisted ? { eligible: true } : await getEligibility(req.user._id, peerId);
-    if (!eligibility.eligible) {
+    if (!receiver || (receiver.showReadReceipts === false && !allowlisted)) {
       return res.status(403).json({
-        message: "Calls unlock after both people have chatted on at least 3 days over 3 days.",
-        eligibility,
+        message: "Unreachable",
       });
     }
 

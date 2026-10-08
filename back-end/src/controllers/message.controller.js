@@ -293,6 +293,8 @@ export async function markMessagesRead(req, res) {
   try {
     const { id: senderId } = req.params;
     const receiverId = req.user._id;
+    const receiver = await User.findById(receiverId).select("showReadReceipts").lean();
+    if (receiver?.showReadReceipts === false) return res.status(200).json({ ok: true, readReceiptsOff: true });
     await Message.updateMany(
       { senderId, receiverId, readAt: null },
       { $set: { readAt: new Date() } },
@@ -545,4 +547,10 @@ export async function setAllowedCallers(req, res) {
   if (callers.some((id) => !known.has(id))) return res.status(400).json({ message: "Choose people you have chatted with" });
   await User.updateOne({ _id: req.user._id }, { $set: { allowedCallers: callers } });
   res.status(200).json({ allowedCallers: callers });
+}
+
+export async function setReadReceiptVisibility(req, res) {
+  const enabled = Boolean(req.body.enabled);
+  await User.updateOne({ _id: req.user._id }, { $set: { showReadReceipts: enabled } });
+  res.status(200).json({ showReadReceipts: enabled });
 }

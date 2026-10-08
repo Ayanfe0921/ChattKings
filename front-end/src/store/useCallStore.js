@@ -72,7 +72,7 @@ export const useCallStore = create((set, get) => ({
     try {
       const eligibility = await axiosInstance.get(`/calls/eligibility/${peer._id}`);
       if (!eligibility.data.eligible) {
-        toast.error("Calls unlock after you both have chatted on 3 separate days over 3 days.");
+        toast.error("Unreachable");
         return;
       }
       stream = await navigator.mediaDevices.getUserMedia({
