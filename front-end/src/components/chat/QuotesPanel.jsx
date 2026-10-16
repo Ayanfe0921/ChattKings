@@ -9,7 +9,9 @@ export function QuotesPanel() {
   const getConversations = useChatStore((state) => state.getConversations);
   const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
   const setWorkspaceSection = useChatStore((state) => state.setWorkspaceSection);
-  const [quote, setQuote] = useState(null);
+  const [quote, setQuote] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("chattkings-last-quote") || "null"); } catch { return null; }
+  });
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [sharingTo, setSharingTo] = useState("");
@@ -30,10 +32,9 @@ export function QuotesPanel() {
   };
 
   useEffect(() => {
-    const cached = localStorage.getItem("chattkings-last-quote");
-    if (cached) { try { setQuote(JSON.parse(cached)); setLoading(false); } catch {} }
-    loadQuote();
+    const quoteTimer = window.setTimeout(loadQuote, 0);
     if (navigator.onLine) getConversations();
+    return () => window.clearTimeout(quoteTimer);
   }, [getConversations]);
 
   const postQuote = async () => {

@@ -183,7 +183,7 @@ export async function getConversationsForSidebar(req, res) {
                 {
                   $and: [
                     { $eq: ["$receiverId", loggedInUserId] },
-                    { $eq: [{ $ifNull: ["$readAt", null] }, null] },
+                    { $eq: [{ $ifNull: ["$receiverReadAt", "$readAt"] }, null] },
                   ],
                 },
                 1,
@@ -294,13 +294,20 @@ export async function markMessagesRead(req, res) {
     const { id: senderId } = req.params;
     const receiverId = req.user._id;
     const receiver = await User.findById(receiverId).select("showReadReceipts").lean();
-    if (receiver?.showReadReceipts === false) return res.status(200).json({ ok: true, readReceiptsOff: true });
+    const readTime = new Date();
+    const update = { receiverReadAt: readTime };
+    if (receiver?.showReadReceipts !== false) update.readAt = readTime;
     await Message.updateMany(
-      { senderId, receiverId, readAt: null },
-      { $set: { readAt: new Date() } },
+      { senderId, receiverId, receiverReadAt: null },
+      { $set: update },
     );
-    io.to(`user:${receiverId}`).emit("messagesRead", { peerId: String(senderId) });
-    res.status(200).json({ ok: true });
+    if (receiver?.showReadReceipts !== false) {
+      io.to(`user:${senderId}`).emit("messagesRead", {
+        peerId: String(receiverId),
+        readAt: readTime,
+      });
+    }
+    res.status(200).json({ ok: true, readReceiptsOff: receiver?.showReadReceipts === false });
   } catch (error) {
     console.error("Error in markMessagesRead:", error);
     res.status(500).json({ message: "Could not mark messages as read" });

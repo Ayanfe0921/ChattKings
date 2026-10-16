@@ -15,15 +15,16 @@ export function PostsPanel() {
   const [recordingPostId, setRecordingPostId] = useState(null);
   const recorderRef = useRef(null);
   const fileInput = useRef(null);
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("chattkings-seen-posts") || "[]"); } catch { return []; }
+  });
   const [file, setFile] = useState(null);
   const [caption, setCaption] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => navigator.onLine);
   const [isPosting, setIsPosting] = useState(false);
 
   useEffect(() => {
-    try { const cached = JSON.parse(localStorage.getItem("chattkings-seen-posts") || "[]"); if (cached.length) setPosts(cached); } catch {}
-    if (!navigator.onLine) { setIsLoading(false); return; }
+    if (!navigator.onLine) return;
     axiosInstance
       .get("/posts")
       .then((res) => setPosts(res.data))

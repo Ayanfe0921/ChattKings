@@ -45,15 +45,18 @@ function TimeLeft({ eventAt, now }) {
 }
 
 export function CountdownPanel() {
-  const [countdowns, setCountdowns] = useState([]);
-  const [now, setNow] = useState(Date.now());
+  const [countdowns, setCountdowns] = useState(() => {
+    if (navigator.onLine) return [];
+    try { return JSON.parse(localStorage.getItem("chattkings-countdowns") || "[]"); } catch { return []; }
+  });
+  const [now, setNow] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [eventAt, setEventAt] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => navigator.onLine);
   const [isSaving, setIsSaving] = useState(false);
 
-  const newYear = useMemo(getNewYearTarget, []);
+  const newYear = useMemo(() => getNewYearTarget(), []);
 
   const loadCountdowns = useCallback(async () => {
     try {
@@ -72,10 +75,10 @@ export function CountdownPanel() {
   }, [newYear.date, newYear.year]);
 
   useEffect(() => {
-    if (navigator.onLine) loadCountdowns();
-    else { try { setCountdowns(JSON.parse(localStorage.getItem("chattkings-countdowns") || "[]")); } catch {} setIsLoading(false); }
+    const loadTimer = navigator.onLine ? window.setTimeout(loadCountdowns, 0) : null;
+    const initialClockUpdate = window.setTimeout(() => setNow(Date.now()), 0);
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    return () => { if (loadTimer !== null) window.clearTimeout(loadTimer); window.clearTimeout(initialClockUpdate); window.clearInterval(timer); };
   }, [loadCountdowns]);
 
   const handleCreate = async (event) => {

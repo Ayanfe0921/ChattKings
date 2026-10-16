@@ -52,7 +52,6 @@ function ChatSidebar() {
   const authUser = useAuthStore((state) => state.authUser);
   const socket = useAuthStore((state) => state.socket);
   const setAuthUser = useAuthStore.setState;
-  const [savingPresence, setSavingPresence] = useState(false);
   const [savingReceipts, setSavingReceipts] = useState(false);
 
   const { activeConversationId, isLargeScreen } = useSelectedConversation();
@@ -116,7 +115,6 @@ function ChatSidebar() {
           {isOnline ? <UserButton appearance={{ elements: { avatarBox: "size-8" } }} /> : (
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface text-[10px] text-muted" title="Account management requires an internet connection" aria-label="Account management unavailable offline">{authUser?.fullName?.slice(0, 1) || "U"}</span>
           )}
-          <button type="button" disabled={!isOnline || savingPresence} aria-pressed={authUser?.showOnlineStatus !== false} title={!isOnline ? "Account settings require an internet connection" : authUser?.showOnlineStatus === false ? "Turn online visibility on" : "Turn online visibility off"} onClick={async () => { if (!navigator.onLine) return; const enabled = authUser?.showOnlineStatus === false; setSavingPresence(true); try { const res = await axiosInstance.patch("/messages/settings/online-status", { enabled }); setAuthUser((state) => ({ authUser: { ...state.authUser, ...res.data } })); } catch (error) { toast.error(error.response?.data?.message || "Could not update online visibility"); } finally { setSavingPresence(false); } }} className={`grid size-8 shrink-0 place-items-center rounded-full border text-[10px] font-semibold disabled:opacity-50 ${authUser?.showOnlineStatus === false ? "border-border text-muted" : "border-success bg-success/10 text-success"}`} aria-label="Toggle online visibility">{authUser?.showOnlineStatus === false ? "OFF" : "ON"}</button>
           <button type="button" disabled={!isOnline || savingReceipts} aria-pressed={authUser?.showReadReceipts !== false} title={authUser?.showReadReceipts === false ? "Turn read receipts on; anyone can call you" : "Turn read receipts off; only selected people can call you"} onClick={async () => { if (!navigator.onLine) return; const enabled = authUser?.showReadReceipts === false; setSavingReceipts(true); try { const res = await axiosInstance.patch("/messages/settings/read-receipts", { enabled }); setAuthUser((state) => ({ authUser: { ...state.authUser, ...res.data } })); } catch (error) { toast.error(error.response?.data?.message || "Could not update read receipts"); } finally { setSavingReceipts(false); } }} className={`grid size-8 shrink-0 place-items-center rounded-full border disabled:opacity-50 ${authUser?.showReadReceipts === false ? "border-border text-muted" : "border-success bg-success/10 text-success"}`} aria-label={authUser?.showReadReceipts === false ? "Turn read receipts on" : "Turn read receipts off"}>{authUser?.showReadReceipts === false ? <EyeOffIcon className="size-4"/> : <EyeIcon className="size-4"/>}</button>
         </div>
       </div>

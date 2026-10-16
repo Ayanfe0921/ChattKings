@@ -7,7 +7,7 @@ const callSchema = new mongoose.Schema(
     callType: { type: String, enum: ["voice", "video"], required: true },
     status: {
       type: String,
-      enum: ["ringing", "answered", "missed", "declined", "ended"],
+      enum: ["ringing", "answered", "missed", "busy", "declined", "ended"],
       default: "ringing",
     },
     startedAt: { type: Date, default: Date.now },

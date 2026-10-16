@@ -44,7 +44,10 @@ export function GroupWorkspace() {
     }
   };
 
-  useEffect(() => { loadGroups(); }, []);
+  useEffect(() => {
+    const loadTimer = window.setTimeout(loadGroups, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -65,7 +68,6 @@ export function GroupWorkspace() {
     let stillActive = true;
     const groupId = activeGroup._id;
     socket?.emit("group:join", { groupId });
-    setMessages([]);
     axiosInstance.get(`/groups/${groupId}/messages`)
       .then((response) => { if (stillActive) setMessages(response.data); })
       .catch((error) => toast.error(error.response?.data?.message || "Could not load group messages"));
@@ -234,7 +236,7 @@ export function GroupWorkspace() {
             <details className="mt-2"><summary className="cursor-pointer text-xs font-medium text-accent">Create a group poll</summary><form onSubmit={createPoll} className="mt-2 space-y-2"><input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} maxLength={240} required aria-label="Poll question" placeholder="Ask a question" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"/>{pollOptions.map((option, index) => <input key={index} value={option} onChange={(event) => setPollOptions((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} maxLength={100} aria-label={`Poll option ${index + 1}`} placeholder={`Option ${index + 1}`} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"/>)}<div className="flex gap-2"><button type="button" disabled={pollOptions.length >= 6} onClick={() => setPollOptions((current) => [...current, ""])} className="rounded-lg border border-border px-2 py-1 text-xs disabled:opacity-50">Add option</button><button type="submit" disabled={!pollQuestion.trim() || pollOptions.filter((item) => item.trim()).length < 2} className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground disabled:opacity-50">Post poll</button></div></form></details>
           </section>
           <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-5">
-            {messages.map((message) => {
+            {messages.filter((message) => String(message.groupId?._id || message.groupId) === String(activeGroup._id)).map((message) => {
               const own = String(message.senderId?._id || message.senderId) === String(authUser?._id);
               return <div key={message._id} className={`flex ${own ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[82%] rounded-2xl px-3 py-2 ${own ? "rounded-br-md bg-accent text-accent-foreground" : "rounded-bl-md bg-surface"}`}>

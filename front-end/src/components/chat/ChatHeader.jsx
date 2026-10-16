@@ -27,7 +27,7 @@ function CallAction({ peer }) {
   const conversations = useChatStore((state) => state.conversations);
   const authUser = useAuthStore((state) => state.authUser);
   const startCall = useCallStore((state) => state.startCall);
-  const canCall = Boolean(navigator.onLine && peer?.isOnline);
+  const canCall = Boolean(navigator.onLine && peer);
   const callers = authUser?.allowedCallers || [];
   const canManageCallers = authUser?.showReadReceipts === false;
   const open = () => { setSelected(callers.map(String)); setIsOpen(true); };

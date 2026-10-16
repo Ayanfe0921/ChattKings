@@ -1,21 +1,21 @@
 import { useWallpaper } from "../context/wallpaper";
 import { useChatStore } from "../store/useChatStore";
 import { useSelectedConversation } from "../hooks/useSelectedConversation";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import ChatSidebar from "../components/chat/ChatSidebar";
 import { ChatHeader } from "../components/chat/ChatHeader";
 import { MessageList } from "../components/chat/MessageList";
 import { ChatComposer } from "../components/chat/ChatComposer";
 import { CallOverlay } from "../components/chat/CallOverlay";
 import { WorkspaceRail } from "../components/chat/WorkspaceRail";
-import { CountdownPanel } from "../components/chat/CountdownPanel";
-import { CallHistoryPanel } from "../components/chat/CallHistoryPanel";
-import { PostsPanel } from "../components/chat/PostsPanel";
-import { GroupWorkspace } from "../components/chat/GroupWorkspace";
-import { CodexChatPanel } from "../components/chat/CodexChatPanel";
-import { QuotesPanel } from "../components/chat/QuotesPanel";
-import { QuizPanel } from "../components/chat/QuizPanel";
-import { QuickNotesPanel } from "../components/chat/QuickNotesPanel";
+const CountdownPanel = lazy(() => import("../components/chat/CountdownPanel").then((module) => ({ default: module.CountdownPanel })));
+const CallHistoryPanel = lazy(() => import("../components/chat/CallHistoryPanel").then((module) => ({ default: module.CallHistoryPanel })));
+const PostsPanel = lazy(() => import("../components/chat/PostsPanel").then((module) => ({ default: module.PostsPanel })));
+const GroupWorkspace = lazy(() => import("../components/chat/GroupWorkspace").then((module) => ({ default: module.GroupWorkspace })));
+const CodexChatPanel = lazy(() => import("../components/chat/CodexChatPanel").then((module) => ({ default: module.CodexChatPanel })));
+const QuotesPanel = lazy(() => import("../components/chat/QuotesPanel").then((module) => ({ default: module.QuotesPanel })));
+const QuizPanel = lazy(() => import("../components/chat/QuizPanel").then((module) => ({ default: module.QuizPanel })));
+const QuickNotesPanel = lazy(() => import("../components/chat/QuickNotesPanel").then((module) => ({ default: module.QuickNotesPanel })));
 
 function ChatPage() {
   const { frameStyle } = useWallpaper();
@@ -76,14 +76,16 @@ function ChatPage() {
           </>
         ) : (
           <main className="min-h-0 flex-1 overflow-y-auto">
-            {workspaceSection === "countdowns" ? <CountdownPanel /> : null}
-            {workspaceSection === "calls" ? <CallHistoryPanel /> : null}
-            {workspaceSection === "posts" ? <PostsPanel /> : null}
-            {workspaceSection === "groups" ? <GroupWorkspace /> : null}
-            {workspaceSection === "codex" ? <CodexChatPanel /> : null}
-            {workspaceSection === "quotes" ? <QuotesPanel /> : null}
-            {workspaceSection === "quiz" ? <QuizPanel /> : null}
-            {workspaceSection === "notes" ? <QuickNotesPanel /> : null}
+            <Suspense fallback={<p className="p-6 text-center text-sm text-muted">Loading section…</p>}>
+              {workspaceSection === "countdowns" ? <CountdownPanel /> : null}
+              {workspaceSection === "calls" ? <CallHistoryPanel /> : null}
+              {workspaceSection === "posts" ? <PostsPanel /> : null}
+              {workspaceSection === "groups" ? <GroupWorkspace /> : null}
+              {workspaceSection === "codex" ? <CodexChatPanel /> : null}
+              {workspaceSection === "quotes" ? <QuotesPanel /> : null}
+              {workspaceSection === "quiz" ? <QuizPanel /> : null}
+              {workspaceSection === "notes" ? <QuickNotesPanel /> : null}
+            </Suspense>
           </main>
         )}
       </div>

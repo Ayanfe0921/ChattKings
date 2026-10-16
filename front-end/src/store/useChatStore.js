@@ -265,13 +265,18 @@ export const useChatStore = create(
         });
 
         socket.off("messagesRead");
-        socket.on("messagesRead", ({ peerId }) => {
+        socket.on("messagesRead", ({ peerId, readAt }) => {
+          const receivedAt = readAt || new Date().toISOString();
+          const markRead = (message) =>
+            String(message.receiverId?._id || message.receiverId) === String(peerId)
+              ? { ...message, readAt: message.readAt || receivedAt }
+              : message;
           set((state) => ({
-            conversations: state.conversations.map((conversation) =>
-              String(conversation._id) === String(peerId)
-                ? { ...conversation, unreadCount: 0 }
-                : conversation,
-            ),
+            messages: state.messages.map(markRead),
+            conversationMessages: {
+              ...state.conversationMessages,
+              [String(peerId)]: (state.conversationMessages[String(peerId)] || []).map(markRead),
+            },
           }));
         });
 

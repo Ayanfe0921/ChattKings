@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { MicIcon, MicOffIcon, PhoneCallIcon, PhoneOffIcon, VideoIcon } from "lucide-react";
+import { MicIcon, MicOffIcon, PhoneCallIcon, PhoneOffIcon, PhoneMissedIcon, VideoIcon } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCallStore } from "../../store/useCallStore";
 
@@ -34,11 +34,21 @@ export function CallOverlay() {
 
   if (!activeCall) return null;
   const isIncoming = activeCall.incoming && activeCall.status === "ringing";
+  const isOutcome = !activeCall.incoming && ["missed", "busy"].includes(activeCall.status);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm">
       <section className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-background text-foreground shadow-2xl">
-        {isIncoming ? (
+        {isOutcome ? (
+          <div className="px-6 py-9 text-center" role="status" aria-live="polite">
+            <div className={`relative mx-auto grid size-20 place-items-center rounded-full ${activeCall.status === "busy" ? "bg-accent/15 text-accent" : "bg-danger/10 text-danger"}`}>
+              {activeCall.status === "busy" ? <span aria-hidden className="absolute inset-0 rounded-full border-2 border-accent/50 animate-[ping_1s_ease-out_1]" /> : null}
+              {activeCall.status === "busy" ? <PhoneCallIcon className="size-9" /> : <PhoneMissedIcon className="size-9" />}
+            </div>
+            <h2 className="mt-4 text-xl font-semibold">{activeCall.peerName}</h2>
+            <p className="mt-2 text-sm text-muted">{activeCall.status === "busy" ? "On another call" : "Offline — call saved as missed"}</p>
+          </div>
+        ) : isIncoming ? (
           <div className="px-6 py-8 text-center">
             <div className="mx-auto grid size-20 place-items-center rounded-full bg-accent/15 text-accent">
               {activeCall.callType === "video" ? <VideoIcon className="size-9" /> : <PhoneCallIcon className="size-9" />}

@@ -35,7 +35,7 @@ export function CallHistoryPanel() {
           {calls.map((call) => {
             const outgoing = String(call.callerId?._id) === String(authUser?._id);
             const person = outgoing ? call.receiverId : call.callerId;
-            const missed = call.status === "missed" || call.status === "declined";
+            const missed = call.status === "missed" || call.status === "declined" || call.status === "busy";
             const peer = users.find((user) => String(user._id) === String(person?._id));
             const Icon = missed ? PhoneMissedIcon : outgoing ? PhoneCallIcon : PhoneIncomingIcon;
 

@@ -122,6 +122,7 @@ export function MessageBubble({ message, onReply, onReact, onDelete, onPin, curr
           }`}
         >
           {message.time}
+          {isOwnMessage && message.readAt ? <span className="ml-1 font-medium">· Read</span> : null}
         </p>
       </div>
     </div>

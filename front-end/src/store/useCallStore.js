@@ -55,10 +55,6 @@ export const useCallStore = create((set, get) => ({
 
   startCall: async (peer, callType) => {
     const socket = useAuthStore.getState().socket;
-    if (!peer?.isOnline) {
-      toast.error("You can call this person when they are online");
-      return;
-    }
     if (!peer?._id || !socket?.connected) {
       toast.error("Connect to the chat server before calling");
       return;
@@ -69,21 +65,42 @@ export const useCallStore = create((set, get) => ({
     }
 
     let stream;
+    let call;
     try {
       const eligibility = await axiosInstance.get(`/calls/eligibility/${peer._id}`);
       if (!eligibility.data.eligible) {
         toast.error("Unreachable");
         return;
       }
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: callType === "video",
-      });
       const response = await axiosInstance.post("/calls", {
         peerId: peer._id,
         callType,
       });
-      const call = response.data;
+      call = response.data;
+      if (call.status === "missed" || call.status === "busy") {
+        set({
+          activeCall: {
+            id: call._id,
+            peerId: peer._id,
+            peerName: peer.fullName,
+            callType,
+            incoming: false,
+            status: call.status,
+            startedAt: Date.now(),
+          },
+          localStream: null,
+          remoteStream: null,
+          peerConnection: null,
+        });
+        ringTimeout = window.setTimeout(() => {
+          if (get().activeCall?.id === call._id) set({ activeCall: null });
+        }, 3200);
+        return;
+      }
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: callType === "video",
+      });
       const activeCall = {
         id: call._id,
         peerId: peer._id,
@@ -112,6 +129,9 @@ export const useCallStore = create((set, get) => ({
       }, 45_000);
     } catch (error) {
       stream?.getTracks().forEach((track) => track.stop());
+      if (call?._id && call.status === "ringing") {
+        await axiosInstance.patch(`/calls/${call._id}/finish`, { status: "ended" }).catch(() => {});
+      }
       if (error.response?.data?.message) toast.error(error.response.data.message);
       else toast.error("Allow microphone/camera access to start a call");
       set({ activeCall: null, localStream: null, peerConnection: null });
@@ -120,7 +140,7 @@ export const useCallStore = create((set, get) => ({
 
   receiveIncomingCall: (payload) => {
     if (get().activeCall) {
-      useAuthStore.getState().socket?.emit("call:decline", {
+      useAuthStore.getState().socket?.emit("call:busy", {
         callId: payload.callId,
         toUserId: payload.fromUserId,
       });
@@ -139,6 +159,25 @@ export const useCallStore = create((set, get) => ({
       },
       pendingCandidates: [],
     });
+  },
+
+  receiveBusyCall: async ({ callId }) => {
+    const call = get().activeCall;
+    if (!call || call.id !== callId) return;
+    window.clearTimeout(ringTimeout);
+    get().peerConnection?.close();
+    get().localStream?.getTracks().forEach((track) => track.stop());
+    set({
+      activeCall: { ...call, status: "busy" },
+      localStream: null,
+      remoteStream: null,
+      peerConnection: null,
+      pendingCandidates: [],
+    });
+    await axiosInstance.patch(`/calls/${callId}/finish`, { status: "busy" }).catch(() => {});
+    ringTimeout = window.setTimeout(() => {
+      if (get().activeCall?.id === callId) set({ activeCall: null });
+    }, 3200);
   },
 
   acceptCall: async () => {
@@ -175,7 +214,7 @@ export const useCallStore = create((set, get) => ({
 
   receiveAnswer: async (payload) => {
     const { activeCall, peerConnection, pendingCandidates } = get();
-    if (!activeCall || activeCall.id !== payload.callId || !peerConnection) return;
+    if (!activeCall || activeCall.status !== "ringing" || activeCall.id !== payload.callId || !peerConnection) return;
     await peerConnection.setRemoteDescription(payload.answer);
     await applyQueuedCandidates(peerConnection, pendingCandidates);
     set({
@@ -243,11 +282,13 @@ export const useCallStore = create((set, get) => ({
     socket.off("call:ice");
     socket.off("call:decline");
     socket.off("call:end");
+    socket.off("call:busy");
     socket.on("call:incoming", get().receiveIncomingCall);
     socket.on("call:answer", get().receiveAnswer);
     socket.on("call:ice", get().receiveCandidate);
     socket.on("call:decline", () => get().finishCall("declined", false));
     socket.on("call:end", () => get().finishCall("ended", false));
+    socket.on("call:busy", get().receiveBusyCall);
   },
 
   unregisterCallEvents: () => {
@@ -257,5 +298,6 @@ export const useCallStore = create((set, get) => ({
     socket?.off("call:ice");
     socket?.off("call:decline");
     socket?.off("call:end");
+    socket?.off("call:busy");
   },
 }));

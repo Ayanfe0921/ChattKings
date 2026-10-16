@@ -13,6 +13,10 @@ import { Toaster } from "react-hot-toast";
 function App() {
   const { isSignedIn, isLoaded } = useAuth();
   const { user: clerkUser } = useUser();
+  const clerkId = clerkUser?.id;
+  const clerkFirstName = clerkUser?.firstName;
+  const clerkLastName = clerkUser?.lastName;
+  const clerkImageUrl = clerkUser?.imageUrl;
   const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
   const clerkProfileSnapshot = useRef(null);
 
@@ -35,8 +39,8 @@ function App() {
   }, [checkAuth, clearAuth, isLoaded, isSignedIn]);
 
   useEffect(() => {
-    if (!navigator.onLine || !isLoaded || !isSignedIn || !clerkUser) return;
-    const profile = [clerkUser.id, clerkUser.firstName, clerkUser.lastName, clerkUser.imageUrl].join("|");
+    if (!navigator.onLine || !isLoaded || !isSignedIn || !clerkId) return;
+    const profile = [clerkId, clerkFirstName, clerkLastName, clerkImageUrl].join("|");
     if (clerkProfileSnapshot.current === null) {
       clerkProfileSnapshot.current = profile;
       return;
@@ -45,11 +49,10 @@ function App() {
       clerkProfileSnapshot.current = profile;
       syncProfile();
     }
-  }, [isLoaded, isSignedIn, clerkUser?.id, clerkUser?.firstName, clerkUser?.lastName, clerkUser?.imageUrl, syncProfile]);
+  }, [isLoaded, isSignedIn, clerkId, clerkFirstName, clerkLastName, clerkImageUrl, syncProfile]);
 
   useEffect(() => {
     if (isLoaded) {
-      setClerkLoadTimedOut(false);
       return;
     }
 

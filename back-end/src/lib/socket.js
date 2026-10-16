@@ -15,6 +15,7 @@ const io = new Server(server, {
 
 // Keep every connection for a user (multiple tabs/devices) in one room.
 const userSocketMap = new Map();
+export const isUserOnline = (userId) => Boolean(userSocketMap.get(String(userId))?.size);
 
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
@@ -41,22 +42,41 @@ io.on("connection", (socket) => {
 
   socket.on("call:invite", async (payload = {}) => {
     const call = await Call.findById(payload.callId).lean();
-    if (
-      call &&
+    const isValidInvite = call &&
       String(call.callerId) === String(userId) &&
       String(call.receiverId) === String(payload.toUserId) &&
-      call.status === "ringing"
-    ) {
-      io.to(`user:${call.receiverId}`).emit("call:incoming", {
-        ...payload,
-        fromUserId: String(userId),
-      });
+      call.status === "ringing";
+    if (!isValidInvite) return;
+    const anotherActiveCall = call && await Call.exists({
+      _id: { $ne: call._id },
+      status: { $in: ["ringing", "answered"] },
+      endedAt: null,
+      $or: [{ callerId: call.receiverId }, { receiverId: call.receiverId }],
+    });
+    if (anotherActiveCall) {
+      await Call.updateOne({ _id: call._id, status: "ringing" }, { $set: { status: "busy", endedAt: new Date() } });
+      io.to(`user:${call.callerId}`).emit("call:busy", { callId: String(call._id) });
+      return;
     }
+    io.to(`user:${call.receiverId}`).emit("call:incoming", {
+      ...payload,
+      fromUserId: String(userId),
+    });
+  });
+
+  socket.on("call:busy", async (payload = {}) => {
+    const call = await Call.findById(payload.callId).lean();
+    if (!call || String(call.receiverId) !== String(userId) || call.status !== "ringing") return;
+    await Call.updateOne(
+      { _id: call._id, status: "ringing" },
+      { $set: { status: "busy", endedAt: new Date() } },
+    );
+    io.to(`user:${call.callerId}`).emit("call:busy", { callId: String(call._id) });
   });
 
   socket.on("call:answer", async (payload = {}) => {
     const call = await Call.findById(payload.callId).lean();
-    if (call && String(call.receiverId) === String(userId)) {
+    if (call && call.status === "answered" && String(call.receiverId) === String(userId)) {
       io.to(`user:${call.callerId}`).emit("call:answer", {
         ...payload,
         fromUserId: String(userId),
@@ -70,7 +90,7 @@ io.on("connection", (socket) => {
       call &&
       (String(call.callerId) === String(userId) ||
         String(call.receiverId) === String(userId));
-    if (isParticipant && call.status !== "ended" && call.status !== "missed") {
+    if (isParticipant && ["ringing", "answered"].includes(call.status)) {
       const peerId = String(call.callerId) === String(userId) ? call.receiverId : call.callerId;
       io.to(`user:${peerId}`).emit("call:ice", { ...payload, fromUserId: String(userId) });
     }

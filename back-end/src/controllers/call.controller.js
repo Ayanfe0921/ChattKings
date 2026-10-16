@@ -1,6 +1,15 @@
 import Call from "../models/call.model.js";
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
+import { isUserOnline } from "../lib/socket.js";
+
+async function markStaleRingingCallsMissed() {
+  const staleBefore = new Date(Date.now() - 60_000);
+  await Call.updateMany(
+    { status: "ringing", endedAt: null, createdAt: { $lt: staleBefore } },
+    { $set: { status: "missed", endedAt: new Date() } },
+  );
+}
 
 export async function checkCallEligibility(req, res) {
   try {
@@ -33,10 +42,20 @@ export async function createCall(req, res) {
       });
     }
 
+    await markStaleRingingCallsMissed();
+    const anotherActiveCall = await Call.exists({
+      status: { $in: ["ringing", "answered"] },
+      endedAt: null,
+      $or: [{ callerId: peerId }, { receiverId: peerId }],
+    });
+    const outcome = !isUserOnline(peerId) ? "missed" : anotherActiveCall ? "busy" : "ringing";
+    const now = new Date();
     const call = await Call.create({
       callerId: req.user._id,
       receiverId: peerId,
       callType,
+      status: outcome,
+      endedAt: outcome === "ringing" ? null : now,
     });
     res.status(201).json(call);
   } catch (error) {
@@ -63,7 +82,7 @@ export async function acceptCall(req, res) {
 export async function finishCall(req, res) {
   try {
     const { status = "ended" } = req.body;
-    if (!["missed", "declined", "ended"].includes(status)) {
+    if (!["missed", "busy", "declined", "ended"].includes(status)) {
       return res.status(400).json({ message: "Invalid call status" });
     }
     const call = await Call.findOne({
@@ -88,6 +107,7 @@ export async function finishCall(req, res) {
 
 export async function getCallHistory(req, res) {
   try {
+    await markStaleRingingCallsMissed();
     const calls = await Call.find({
       $or: [{ callerId: req.user._id }, { receiverId: req.user._id }],
     })
