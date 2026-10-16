@@ -110,5 +110,5 @@ Private and group messages are persisted in MongoDB. The frontend also caches re
 - Add encrypted message backups and retention controls. Conversation export is available now; end-to-end encryption is not yet implemented.
 - Build stronger safety tooling around reports: moderator review, appeal handling, and protection against coordinated or mistaken reports.
 - Add shared plans to group conversations; polls and the shared task board are available now.
-- Expand accessibility and low-bandwidth support with keyboard navigation and voice-note transcripts. Data saver is available in chat and uses smaller media previews with deferred video loading.
+  - Expand accessibility and low-bandwidth support with keyboard navigation and voice-note transcripts. Data saver is available in chat and uses smaller media previews with deferred video loading.
 
