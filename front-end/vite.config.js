@@ -10,19 +10,4 @@ export default defineConfig({
     tailwindcss(),
     babel({ presets: [reactCompilerPreset()] })
   ],
-  build: {
-    rolldownOptions: {
-      output: {
-        codeSplitting: {
-          groups: [{
-            name: "vendor",
-            test: /node_modules/,
-            minSize: 100_000,
-            maxSize: 300_000,
-            priority: 10,
-          }],
-        },
-      },
-    },
-  },
 })
