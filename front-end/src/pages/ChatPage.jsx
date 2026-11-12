@@ -8,6 +8,7 @@ import { MessageList } from "../components/chat/MessageList";
 import { ChatComposer } from "../components/chat/ChatComposer";
 import { CallOverlay } from "../components/chat/CallOverlay";
 import { WorkspaceRail } from "../components/chat/WorkspaceRail";
+
 const CountdownPanel = lazy(() => import("../components/chat/CountdownPanel").then((module) => ({ default: module.CountdownPanel })));
 const CallHistoryPanel = lazy(() => import("../components/chat/CallHistoryPanel").then((module) => ({ default: module.CallHistoryPanel })));
 const PostsPanel = lazy(() => import("../components/chat/PostsPanel").then((module) => ({ default: module.PostsPanel })));

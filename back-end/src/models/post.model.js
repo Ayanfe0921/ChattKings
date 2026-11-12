@@ -8,6 +8,7 @@ const postSchema = new mongoose.Schema(
     quoteText: { type: String, trim: true, maxlength: 1000, default: "" },
     quoteAuthor: { type: String, trim: true, maxlength: 160, default: "" },
     caption: { type: String, trim: true, maxlength: 300, default: "" },
+    likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true },
 );

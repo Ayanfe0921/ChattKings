@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import Post from "../models/post.model.js";
 import { io } from "../lib/socket.js";
+import { serializePost } from "./post.controller.js";
 
 const fallbackQuotes = [
   { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
@@ -32,8 +33,9 @@ export async function createQuotePost(req, res) {
     }
     const post = await Post.create({ userId: req.user._id, mediaType: "quote", quoteText, quoteAuthor });
     const populatedPost = await post.populate("userId", "fullName profilePic");
-    io.emit("newPost", populatedPost);
-    res.status(201).json(populatedPost);
+    const responsePost = serializePost(populatedPost, req.user._id);
+    io.emit("newPost", responsePost);
+    res.status(201).json(responsePost);
   } catch (error) {
     console.error("Error posting quote:", error);
     res.status(500).json({ message: "Could not post this quote" });

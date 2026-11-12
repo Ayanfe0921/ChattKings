@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlusIcon, LoaderIcon, MessageCircleIcon, Trash2Icon, MicIcon, SquareIcon } from "lucide-react";
+import { ImagePlusIcon, LoaderIcon, MessageCircleIcon, Trash2Icon, MicIcon, SquareIcon, HeartIcon, UserRoundIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../../lib/axios";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -14,6 +14,7 @@ export function PostsPanel() {
   const sendMediaMessage = useChatStore((state) => state.sendMediaMessage);
   const [recordingPostId, setRecordingPostId] = useState(null);
   const recorderRef = useRef(null);
+  const ownerLikeClickTimer = useRef(null);
   const fileInput = useRef(null);
   const [posts, setPosts] = useState(() => {
     try { return JSON.parse(localStorage.getItem("chattkings-seen-posts") || "[]"); } catch { return []; }
@@ -22,6 +23,16 @@ export function PostsPanel() {
   const [caption, setCaption] = useState("");
   const [isLoading, setIsLoading] = useState(() => navigator.onLine);
   const [isPosting, setIsPosting] = useState(false);
+  const [likesForPost, setLikesForPost] = useState(null);
+  const [isLoadingLikes, setIsLoadingLikes] = useState(false);
+
+  const formatLikeCount = (count = 0) => {
+    if (count >= 999_950) return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}m`;
+    if (count >= 1_000) return `${(count / 1_000).toFixed(count >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k`;
+    return String(count);
+  };
+
+  useEffect(() => () => clearTimeout(ownerLikeClickTimer.current), []);
 
   useEffect(() => {
     if (!navigator.onLine) return;
@@ -58,15 +69,43 @@ export function PostsPanel() {
     const handleDelete = ({ postId }) =>
       setPosts((items) => items.filter((item) => String(item._id) !== String(postId)));
     const handleUserUpdated = (user) => setPosts((items) => items.map((post) => String(post.userId?._id) === String(user._id) ? { ...post, userId: { ...post.userId, ...user } } : post));
+    const handleLikesUpdated = ({ postId, likeCount, actorId, likedByMe }) => setPosts((items) => items.map((post) => String(post._id) === String(postId) ? { ...post, likeCount, ...(String(actorId) === String(authUser?._id) ? { likedByMe } : {}) } : post));
     socket.on("newPost", handlePost);
     socket.on("deletePost", handleDelete);
     socket.on("userUpdated", handleUserUpdated);
+    socket.on("postLikesUpdated", handleLikesUpdated);
     return () => {
       socket.off("newPost", handlePost);
       socket.off("deletePost", handleDelete);
       socket.off("userUpdated", handleUserUpdated);
+      socket.off("postLikesUpdated", handleLikesUpdated);
     };
-  }, [socket]);
+  }, [socket, authUser?._id]);
+
+  const toggleLike = async (post) => {
+    if (!navigator.onLine) return toast.error("Connect to the internet to like posts");
+    try {
+      const { data } = await axiosInstance.post(`/posts/${post._id}/like`);
+      setPosts((items) => items.map((item) => String(item._id) === String(post._id) ? { ...item, ...data } : item));
+    } catch (error) { toast.error(error.response?.data?.message || "Could not like post"); }
+  };
+
+  const showPostLikes = async (post) => {
+    setLikesForPost({ post, users: [] });
+    setIsLoadingLikes(true);
+    try {
+      const { data } = await axiosInstance.get(`/posts/${post._id}/likes`);
+      setLikesForPost({ post, users: data });
+    } catch (error) { setLikesForPost(null); toast.error(error.response?.data?.message || "Could not load likes"); }
+    finally { setIsLoadingLikes(false); }
+  };
+
+  const messageLiker = (user, post) => {
+    setActiveConversationId(user._id);
+    setComposerPostReply(makePostReply(post));
+    setWorkspaceSection("chat");
+    setLikesForPost(null);
+  };
 
   const submitPost = async (event) => {
     event.preventDefault();
@@ -196,6 +235,16 @@ export function PostsPanel() {
                 <div className="flex items-center">
                 <button
                   type="button"
+                  onClick={() => toggleLike(post)}
+                  className={`inline-flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-semibold ${post.likedByMe ? "text-rose-500" : "text-muted hover:bg-surface hover:text-rose-500"}`}
+                  aria-label={`${post.likedByMe ? "Unlike" : "Like"} post, ${post.likeCount || 0} likes`}
+                  title="Like post"
+                >
+                  <span>{formatLikeCount(post.likeCount)}</span>
+                  <HeartIcon className={`size-5 ${post.likedByMe ? "fill-current" : ""}`} />
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     setActiveConversationId(post.userId._id);
                     setComposerPostReply(makePostReply(post));
@@ -211,6 +260,25 @@ export function PostsPanel() {
                 </div>
               ) : null}
               {navigator.onLine && String(post.userId?._id) === String(authUser?._id) ? (
+                <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (ownerLikeClickTimer.current) clearTimeout(ownerLikeClickTimer.current);
+                    ownerLikeClickTimer.current = setTimeout(() => { toggleLike(post); ownerLikeClickTimer.current = null; }, 260);
+                  }}
+                  onDoubleClick={() => {
+                    if (ownerLikeClickTimer.current) clearTimeout(ownerLikeClickTimer.current);
+                    ownerLikeClickTimer.current = null;
+                    showPostLikes(post);
+                  }}
+                  className={`inline-flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-semibold ${post.likedByMe ? "text-rose-500" : "text-muted hover:bg-surface hover:text-rose-500"}`}
+                  aria-label="Like post; double click to see who liked it"
+                  title="Like post; double click to see who liked it"
+                >
+                  <span>{formatLikeCount(post.likeCount)}</span>
+                  <HeartIcon className={`size-5 ${post.likedByMe ? "fill-current" : ""}`} />
+                </button>
                 <button
                   type="button"
                   onClick={() => deletePost(post._id)}
@@ -219,6 +287,7 @@ export function PostsPanel() {
                 >
                   <Trash2Icon className="size-4" />
                 </button>
+                </div>
               ) : null}
             </header>
             {post.mediaType === "quote" ? (
@@ -235,6 +304,27 @@ export function PostsPanel() {
           </article>
         ))}
       </div>
+      {likesForPost ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setLikesForPost(null); }}>
+          <section role="dialog" aria-modal="true" aria-label="People who liked your post" className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold">Likes · {formatLikeCount(likesForPost.post.likeCount)}</h2>
+              <button type="button" className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-surface" onClick={() => setLikesForPost(null)}>Close</button>
+            </div>
+            {isLoadingLikes ? <p className="py-6 text-center text-sm text-muted">Loading likes…</p> : likesForPost.users.length ? (
+              <ul className="max-h-80 space-y-1 overflow-y-auto">
+                {likesForPost.users.map((user) => <li key={user._id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-surface">
+                  <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-accent/10 text-sm font-semibold text-accent">
+                    {user.profilePic ? <img src={user.profilePic} alt="" className="size-full object-cover" /> : user.fullName?.slice(0, 1).toUpperCase() || <UserRoundIcon className="size-4" />}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{user.fullName || "Chat user"}</span>
+                  <button type="button" onClick={() => messageLiker(user, likesForPost.post)} className="grid size-9 place-items-center rounded-lg text-accent hover:bg-accent/10" aria-label={`Message ${user.fullName || "user"}`} title="Message"><MessageCircleIcon className="size-5" /></button>
+                </li>)}
+              </ul>
+            ) : <p className="py-6 text-center text-sm text-muted">No one has liked this post yet.</p>}
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

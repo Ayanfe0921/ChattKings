@@ -4,13 +4,22 @@ import { io } from "../lib/socket.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export function serializePost(post, viewerId) {
+  const data = post.toObject ? post.toObject() : { ...post };
+  const likedBy = data.likedBy || [];
+  delete data.likedBy;
+  data.likeCount = likedBy.length;
+  data.likedByMe = likedBy.some((id) => String(id?._id || id) === String(viewerId));
+  return data;
+}
+
 export async function getPosts(req, res) {
   try {
     const posts = await Post.find({ createdAt: { $gte: new Date(Date.now() - DAY_MS) } })
       .sort({ createdAt: -1 })
       .limit(100)
       .populate("userId", "fullName profilePic");
-    res.status(200).json(posts);
+    res.status(200).json(posts.map((post) => serializePost(post, req.user._id)));
   } catch (error) {
     console.error("Error loading posts:", error);
     res.status(500).json({ message: "Could not load posts" });
@@ -43,8 +52,9 @@ export async function createPost(req, res) {
       caption,
     });
     const populatedPost = await post.populate("userId", "fullName profilePic");
-    io.emit("newPost", populatedPost);
-    res.status(201).json(populatedPost);
+    const responsePost = serializePost(populatedPost, req.user._id);
+    io.emit("newPost", responsePost);
+    res.status(201).json(responsePost);
   } catch (error) {
     console.error("Error creating post:", error);
     res.status(500).json({ message: "Could not create post" });
@@ -52,6 +62,39 @@ export async function createPost(req, res) {
 }
 
 export { createQuotePost } from "./quote.controller.js";
+
+export async function togglePostLike(req, res) {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    const userId = String(req.user._id);
+    const existingIndex = post.likedBy.findIndex((id) => String(id) === userId);
+    if (existingIndex >= 0) post.likedBy.splice(existingIndex, 1);
+    else post.likedBy.push(req.user._id);
+    await post.save();
+    const update = { postId: String(post._id), likeCount: post.likedBy.length, actorId: userId, likedByMe: existingIndex < 0 };
+    io.emit("postLikesUpdated", update);
+    res.status(200).json(update);
+  } catch (error) {
+    console.error("Error updating post like:", error);
+    res.status(500).json({ message: "Could not update like" });
+  }
+}
+
+export async function getPostLikes(req, res) {
+  try {
+    const post = await Post.findById(req.params.id).select("userId likedBy");
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (String(post.userId) !== String(req.user._id)) {
+      return res.status(403).json({ message: "Only the post owner can view its likes" });
+    }
+    await post.populate("likedBy", "fullName profilePic");
+    res.status(200).json(post.likedBy);
+  } catch (error) {
+    console.error("Error loading post likes:", error);
+    res.status(500).json({ message: "Could not load likes" });
+  }
+}
 
 export async function deletePost(req, res) {
   try {
